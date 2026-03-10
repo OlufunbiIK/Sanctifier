@@ -111,7 +111,6 @@ impl UpgradeReport {
     }
 }
 
-
 struct UnhandledResultVisitor {
     issues: Vec<UnhandledResultIssue>,
     current_fn: Option<String>,
