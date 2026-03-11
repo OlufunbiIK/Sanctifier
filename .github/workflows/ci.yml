@@ -36,14 +36,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libz3-dev
+
       - name: Check formatting
-        run: cargo fmt --check
+        run: cargo fmt --all --check
 
       - name: Run Clippy
-        run: cargo clippy -p sanctifier-cli -p sanctifier-core --all-targets --all-features -- -D warnings
+        run: |
+          cargo clippy -p sanctifier-core --all-targets --all-features -- -D warnings
+          cd tooling/sanctifier-cli && cargo clippy --all-targets -- -D warnings
 
       - name: Build All (Debug)
-        run: cargo build -p sanctifier-cli -p sanctifier-core
+        run: |
+          cargo build -p sanctifier-core --all-features
+          cd tooling/sanctifier-cli && cargo build
 
       - name: Run All Tests
         run: |
