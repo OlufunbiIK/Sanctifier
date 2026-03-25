@@ -213,6 +213,10 @@ impl FunctionSecuritySummary {
     }
 }
 
+fn is_reserved_soroban_entrypoint(fn_name: &str) -> bool {
+    matches!(fn_name, "__constructor" | "__check_auth")
+}
+
 impl<'ast> Visit<'ast> for UnsafeVisitor {
     fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
         let method_name = node.method.to_string();
@@ -675,6 +679,9 @@ impl Analyzer {
                     if let syn::ImplItem::Fn(f) = impl_item {
                         if let syn::Visibility::Public(_) = f.vis {
                             let fn_name = f.sig.ident.to_string();
+                            if is_reserved_soroban_entrypoint(&fn_name) {
+                                continue;
+                            }
                             let mut summary = FunctionSecuritySummary::default();
                             self.check_fn_body(&f.block, &mut summary);
                             if summary.has_sensitive_action() && !summary.has_auth {
@@ -1451,6 +1458,7 @@ fn is_external_contract_method_call(method_call: &syn::ExprMethodCall) -> bool {
     }
 
     receiver_looks_like_external_client(&method_call.receiver)
+        && !method_looks_read_only(&method_call.method.to_string())
 }
 
 fn receiver_looks_like_external_client(expr: &syn::Expr) -> bool {
@@ -1494,6 +1502,13 @@ fn path_looks_like_client_constructor(path: &syn::Path) -> bool {
 fn ident_looks_like_client(ident: &str) -> bool {
     let lower = ident.to_lowercase();
     lower.ends_with("client") || lower.ends_with("_client")
+}
+
+fn method_looks_read_only(method_name: &str) -> bool {
+    matches!(method_name, "balance" | "paused" | "allowance" | "decimals" | "name" | "symbol")
+        || method_name.starts_with("get_")
+        || method_name.starts_with("is_")
+        || method_name.starts_with("has_")
 }
 
 // ── EventVisitor (stubs/helpers moved) ──────────────────────────────────────
@@ -1965,6 +1980,55 @@ mod tests {
 
         let gaps = analyzer.scan_auth_gaps(source);
         assert_eq!(gaps, vec!["forward".to_string()]);
+    }
+
+    #[test]
+    fn test_scan_auth_gaps_ignores_reserved_soroban_entrypoints() {
+        let analyzer = Analyzer::new(SanctifyConfig::default());
+        let source = r#"
+            #[contractimpl]
+            impl AccountContract {
+                pub fn __constructor(env: Env, admin: Address) {
+                    env.storage().instance().set(&symbol_short!("admin"), &admin);
+                }
+
+                pub fn reset_admin(env: Env, admin: Address) {
+                    env.storage().instance().set(&symbol_short!("admin"), &admin);
+                }
+            }
+
+            #[contractimpl(contracttrait)]
+            impl CustomAccountInterface for AccountContract {
+                pub fn __check_auth(env: Env, payload: BytesN<32>) {
+                    env.storage().temporary().set(&payload, &true);
+                }
+            }
+        "#;
+
+        let gaps = analyzer.scan_auth_gaps(source);
+        assert_eq!(gaps, vec!["reset_admin".to_string()]);
+    }
+
+    #[test]
+    fn test_scan_auth_gaps_ignores_read_only_external_client_calls() {
+        let analyzer = Analyzer::new(SanctifyConfig::default());
+        let source = r#"
+            #[contractimpl]
+            impl Pool {
+                pub fn get_balance(env: Env, token: Address) -> i128 {
+                    let client = token::Client::new(&env, &token);
+                    client.balance(&env.current_contract_address())
+                }
+
+                pub fn forward_transfer(env: Env, token: Address, to: Address, amount: i128) {
+                    let client = token::Client::new(&env, &token);
+                    client.transfer(&env.current_contract_address(), &to, &amount);
+                }
+            }
+        "#;
+
+        let gaps = analyzer.scan_auth_gaps(source);
+        assert_eq!(gaps, vec!["forward_transfer".to_string()]);
     }
 
     #[test]

@@ -12,6 +12,7 @@
   --font-mono: var(--font-geist-mono);
 }
 
+:root[data-theme="dark"],
 :root.dark {
   --background: #0a0a0a;
   --foreground: #ededed;
@@ -22,6 +23,12 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), sans-serif;
   transition: background-color 0.3s ease, color 0.3s ease;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] body,
+:root.dark body {
+  color-scheme: dark;
 }
 
 /* High Contrast Accessibility Mode */

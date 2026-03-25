@@ -18,6 +18,10 @@ impl FunctionSecuritySummary {
     }
 }
 
+fn is_reserved_soroban_entrypoint(fn_name: &str) -> bool {
+    matches!(fn_name, "__constructor" | "__check_auth")
+}
+
 impl AuthGapRule {
     /// Create a new instance.
     pub fn new() -> Self {
@@ -53,6 +57,9 @@ impl Rule for AuthGapRule {
                     if let syn::ImplItem::Fn(f) = impl_item {
                         if let syn::Visibility::Public(_) = f.vis {
                             let fn_name = f.sig.ident.to_string();
+                            if is_reserved_soroban_entrypoint(&fn_name) {
+                                continue;
+                            }
                             let mut summary = FunctionSecuritySummary::default();
                             check_fn_body(&f.block, &mut summary);
                             if summary.has_sensitive_action() && !summary.has_auth {
@@ -83,6 +90,9 @@ impl Rule for AuthGapRule {
                 for impl_item in &i.items {
                     if let syn::ImplItem::Fn(f) = impl_item {
                         if let syn::Visibility::Public(_) = f.vis {
+                            if is_reserved_soroban_entrypoint(&f.sig.ident.to_string()) {
+                                continue;
+                            }
                             let mut summary = FunctionSecuritySummary::default();
                             check_fn_body(&f.block, &mut summary);
                             if summary.has_sensitive_action() && !summary.has_auth {
@@ -212,6 +222,7 @@ fn is_external_contract_method_call(method_call: &syn::ExprMethodCall) -> bool {
     }
 
     receiver_looks_like_external_client(&method_call.receiver)
+        && !method_looks_read_only(&method_call.method.to_string())
 }
 
 fn receiver_looks_like_external_client(expr: &syn::Expr) -> bool {
@@ -255,4 +266,11 @@ fn path_looks_like_client_constructor(path: &syn::Path) -> bool {
 fn ident_looks_like_client(ident: &str) -> bool {
     let lower = ident.to_lowercase();
     lower.ends_with("client") || lower.ends_with("_client")
+}
+
+fn method_looks_read_only(method_name: &str) -> bool {
+    matches!(method_name, "balance" | "paused" | "allowance" | "decimals" | "name" | "symbol")
+        || method_name.starts_with("get_")
+        || method_name.starts_with("is_")
+        || method_name.starts_with("has_")
 }

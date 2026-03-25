@@ -1,8 +1,14 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 
 type Theme = "light" | "dark";
+const STORAGE_KEY = "theme";
 
 type ThemeContextValue = {
   theme: Theme;
@@ -12,47 +18,53 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
+function getSystemTheme(): Theme {
+  if (typeof window === "undefined") {
+    return "light";
+  }
+
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+function syncTheme(theme: Theme) {
+  const root = document.documentElement;
+  root.dataset.theme = theme;
+  root.classList.toggle("dark", theme === "dark");
+  root.style.colorScheme = theme;
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("light");
 
   useEffect(() => {
-    const stored = window.localStorage.getItem("sanctifier-theme");
-    if (stored === "light" || stored === "dark") {
-      applyTheme(stored);
-      return;
-    }
-
-    const preferred = window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
-    applyTheme(preferred);
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const nextTheme = stored === "light" || stored === "dark"
+      ? stored
+      : getSystemTheme();
+    // Sync the hydrated state to the persisted theme after the bootstrap script has prevented flicker.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setThemeState(nextTheme);
+    syncTheme(nextTheme);
+    window.localStorage.setItem(STORAGE_KEY, nextTheme);
   }, []);
 
   const setTheme = (nextTheme: Theme) => {
-    applyTheme(nextTheme);
+    setThemeState(nextTheme);
+    syncTheme(nextTheme);
+    window.localStorage.setItem(STORAGE_KEY, nextTheme);
   };
 
   const toggleTheme = () => {
     setTheme(theme === "light" ? "dark" : "light");
   };
 
-  const applyTheme = (nextTheme: Theme) => {
-    const root = document.documentElement;
-    root.classList.toggle("dark", nextTheme === "dark");
-    setThemeState(nextTheme);
-    window.localStorage.setItem("sanctifier-theme", nextTheme);
-  };
-
-  const value = useMemo(
-    () => ({
-      theme,
-      toggleTheme,
-      setTheme,
-    }),
-    [theme]
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+      {children}
+    </ThemeContext.Provider>
   );
-
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {

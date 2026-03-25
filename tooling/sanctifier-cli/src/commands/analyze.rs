@@ -9,12 +9,7 @@ use sanctifier_core::{Analyzer, ContractCallEdge, SanctifyConfig, SizeWarningLev
 use serde_json;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
-use std::time::Duration;
-use tracing::{debug, error, info, warn};
 
-use crate::vulndb::{VulnDatabase, VulnMatch};
 
 #[derive(Args, Debug)]
 pub struct AnalyzeArgs {
@@ -207,19 +202,7 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
     let mut auth_gaps = Vec::new();
     let mut panic_issues = Vec::new();
     let mut arithmetic_issues = Vec::new();
-    let mut custom_matches = Vec::new();
-    let mut vuln_matches: Vec<VulnMatch> = Vec::new();
-    let mut event_issues = Vec::new();
-    let mut unhandled_results = Vec::new();
-    let mut upgrade_reports = Vec::new();
-    let mut smt_issues = Vec::new();
-    let mut sep41_checked_contracts = Vec::new();
-    let mut sep41_issues = Vec::new();
-    let mut timed_out_files: Vec<String> = Vec::new();
 
-    for r in results {
-        if r.timed_out {
-            timed_out_files.push(r.file_path.clone());
         }
         call_graph.extend(r.call_graph);
         collisions.extend(r.collisions);
@@ -282,9 +265,12 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
         warn!(target: "sanctifier", error = %err, "Failed to initialize webhook client");
     }
 
+    let duration_ms = start.elapsed().as_millis() as u64;
+    let rules_executed: usize = 6;
+
     if is_json {
         let report = serde_json::json!({
-            "schema_version": "1.0.0",
+
             "storage_collisions": collisions,
             "call_graph": call_graph,
             "ledger_size_warnings": size_warnings,
@@ -646,6 +632,11 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
     }
 
     println!("\n{} Static analysis complete.", "✨".green());
+    println!(
+        "⏱  Analysis completed in {:.1}s ({} files)",
+        duration_ms as f64 / 1000.0,
+        files_analyzed
+    );
 
     Ok(())
 }
