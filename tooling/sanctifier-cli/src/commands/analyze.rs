@@ -4,6 +4,7 @@ use sanctifier_core::{Analyzer, SanctifyConfig};
 use serde_json;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 #[derive(Args, Debug)]
 pub struct AnalyzeArgs {
@@ -60,6 +61,9 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
     let mut auth_gaps = Vec::new();
     let mut panic_issues = Vec::new();
     let mut arithmetic_issues = Vec::new();
+    let mut files_analyzed: usize = 0;
+
+    let start = Instant::now();
 
     if path.is_dir() {
         walk_dir(
@@ -71,22 +75,32 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
             &mut auth_gaps,
             &mut panic_issues,
             &mut arithmetic_issues,
+            &mut files_analyzed,
         )?;
-    } else {
-        if path.extension().and_then(|s| s.to_str()) == Some("rs") {
-            if let Ok(content) = fs::read_to_string(path) {
-                collisions.extend(analyzer.scan_storage_collisions(&content));
-                size_warnings.extend(analyzer.analyze_ledger_size(&content));
-                unsafe_patterns.extend(analyzer.analyze_unsafe_patterns(&content));
-                auth_gaps.extend(analyzer.scan_auth_gaps(&content));
-                panic_issues.extend(analyzer.scan_panics(&content));
-                arithmetic_issues.extend(analyzer.scan_arithmetic_overflow(&content));
-            }
+    } else if path.extension().and_then(|s| s.to_str()) == Some("rs") {
+        if let Ok(content) = fs::read_to_string(path) {
+            files_analyzed += 1;
+            collisions.extend(analyzer.scan_storage_collisions(&content));
+            size_warnings.extend(analyzer.analyze_ledger_size(&content));
+            unsafe_patterns.extend(analyzer.analyze_unsafe_patterns(&content));
+            auth_gaps.extend(analyzer.scan_auth_gaps(&content));
+            panic_issues.extend(analyzer.scan_panics(&content));
+            arithmetic_issues.extend(analyzer.scan_arithmetic_overflow(&content));
         }
     }
 
+    let duration_ms = start.elapsed().as_millis() as u64;
+    let rules_executed: usize = 6;
+
     if is_json {
         let report = serde_json::json!({
+            "metrics": {
+                "files_analyzed": files_analyzed,
+                "duration_ms": duration_ms,
+                "cache_hits": 0,
+                "cache_misses": files_analyzed,
+                "rules_executed": rules_executed,
+            },
             "storage_collisions": collisions,
             "ledger_size_warnings": size_warnings,
             "unsafe_patterns": unsafe_patterns,
@@ -153,6 +167,11 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
     }
 
     println!("\n{} Static analysis complete.", "✨".green());
+    println!(
+        "⏱  Analysis completed in {:.1}s ({} files)",
+        duration_ms as f64 / 1000.0,
+        files_analyzed
+    );
 
     Ok(())
 }
@@ -166,6 +185,7 @@ fn walk_dir(
     auth_gaps: &mut Vec<String>,
     panic_issues: &mut Vec<sanctifier_core::PanicIssue>,
     arithmetic_issues: &mut Vec<sanctifier_core::ArithmeticIssue>,
+    files_analyzed: &mut usize,
 ) -> anyhow::Result<()> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
@@ -180,9 +200,11 @@ fn walk_dir(
                 auth_gaps,
                 panic_issues,
                 arithmetic_issues,
+                files_analyzed,
             )?;
         } else if path.extension().and_then(|s| s.to_str()) == Some("rs") {
             if let Ok(content) = fs::read_to_string(&path) {
+                *files_analyzed += 1;
                 let file_name = path.display().to_string();
 
                 let mut c = analyzer.scan_storage_collisions(&content);
