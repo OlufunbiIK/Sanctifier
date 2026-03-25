@@ -27,7 +27,7 @@ Sample local result:
 
 ```text
 guard_enter_exit_per_invocation
-                        time:   [17.639 us 19.479 us 23.713 us]
+                        time:   [18.235 us 18.889 us 19.661 us]
 ```
 
 Treat the numbers as machine-specific. The command above should be used for the
