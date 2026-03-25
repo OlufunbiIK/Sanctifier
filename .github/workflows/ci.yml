@@ -75,3 +75,51 @@ jobs:
 
       - name: Build Release CLI
         run: cd tooling/sanctifier-cli && cargo build --release
+
+  wasm:
+    name: Build WASM Package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo registry & build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            tooling/sanctifier-wasm/target/
+          key: ${{ runner.os }}-wasm-${{ hashFiles('tooling/sanctifier-wasm/Cargo.lock', 'tooling/sanctifier-core/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-wasm-
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WASM package
+        run: |
+          cd tooling/sanctifier-wasm
+          wasm-pack build --target web --out-dir pkg --out-name sanctifier_wasm
+          # Inject the npm package name expected by the frontend
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('pkg/package.json', 'utf8'));
+            pkg.name = '@sanctifier/wasm';
+            fs.writeFileSync('pkg/package.json', JSON.stringify(pkg, null, 2));
+          "
+
+      - name: Upload WASM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanctifier-wasm-pkg
+          path: tooling/sanctifier-wasm/pkg/
+          retention-days: 7

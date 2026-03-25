@@ -297,3 +297,23 @@ fn test_json_output_validates_against_schema() {
     }
 
 }
+}
+
+#[test]
+fn test_analyze_with_custom_vuln_db() {
+    let mut cmd = Command::cargo_bin("sanctifier").unwrap();
+    let vuln_db_path = env::current_dir()
+        .unwrap()
+        .join("tests/vulndb/minimal-vulndb.json");
+    let fixture_path = env::current_dir()
+        .unwrap()
+        .join("tests/vulndb/todo_example.rs");
+
+    cmd.arg("analyze")
+        .arg(&fixture_path)
+        .arg("--vuln-db")
+        .arg(&vuln_db_path)
+        .env_remove("RUST_LOG")
+        .assert()
+        .success();
+}

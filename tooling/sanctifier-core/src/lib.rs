@@ -39,6 +39,8 @@ pub mod rules;
 /// SEP-41 token-interface verification.
 pub mod sep41;
 /// Z3 SMT solver integration for formal verification.
+/// Only available when the `smt` feature is enabled (default).
+#[cfg(feature = "smt")]
 pub mod smt;
 /// Storage-key collision detection (internal).
 mod storage_collision;
@@ -581,10 +583,13 @@ impl Analyzer {
     }
 
     /// Run lightweight formal-verification checks via Z3.
+    /// Only available when the `smt` feature is enabled (default).
+    #[cfg(feature = "smt")]
     pub fn verify_smt_invariants(&self, source: &str) -> Vec<smt::SmtInvariantIssue> {
         with_panic_guard(|| self.verify_smt_invariants_impl(source))
     }
 
+    #[cfg(feature = "smt")]
     fn verify_smt_invariants_impl(&self, source: &str) -> Vec<smt::SmtInvariantIssue> {
         let file = match parse_str::<File>(source) {
             Ok(f) => f,
@@ -1520,11 +1525,11 @@ impl UnhandledResultVisitor {
                     if let Some(fn_name) = &self.current_fn {
                         let line = expr.span().start().line;
                         self.issues.push(UnhandledResultIssue {
-                            function_name: fn_name.to_string(),
-                            call_expression: Self::expr_to_string(expr),
-                            message: "Result returned from function call is not handled. Use ?, match, or .unwrap()/.expect() to handle the Result.".to_string(),
-                            location: format!("{}:{}", fn_name, line),
-                        });
+                        function_name: fn_name.to_string(),
+                        call_expression: Self::expr_to_string(expr),
+                        message: "Result returned from function call is not handled. Use ?, match, or .unwrap()/.expect() to handle the Result.".to_string(),
+                        location: format!("{}:{}", fn_name, line),
+                    });
                     }
                 }
                 for arg in &call.args {
@@ -1532,9 +1537,10 @@ impl UnhandledResultVisitor {
                 }
             }
             syn::Expr::MethodCall(m) => {
-                if !Self::is_handled(expr) {
-                    self.check_expr_for_unhandled_result(&m.receiver, fn_returns_result);
+                if Self::is_handled(expr) {
+                    return;
                 }
+                self.check_expr_for_unhandled_result(&m.receiver, fn_returns_result);
                 for arg in &m.args {
                     self.check_expr_for_unhandled_result(arg, fn_returns_result);
                 }
@@ -1587,6 +1593,24 @@ impl UnhandledResultVisitor {
                     self.check_expr_for_unhandled_result(expr, true);
                 }
             }
+            syn::Expr::Path(_) => {}
+            syn::Expr::Lit(_) => {}
+            syn::Expr::Field(f) => {
+                self.check_expr_for_unhandled_result(&f.base, fn_returns_result);
+            }
+            syn::Expr::Index(i) => {
+                self.check_expr_for_unhandled_result(&i.expr, fn_returns_result);
+                self.check_expr_for_unhandled_result(&i.index, fn_returns_result);
+            }
+            syn::Expr::Reference(r) => {
+                self.check_expr_for_unhandled_result(&r.expr, fn_returns_result);
+            }
+            syn::Expr::Unary(u) => {
+                self.check_expr_for_unhandled_result(&u.expr, fn_returns_result);
+            }
+            syn::Expr::Cast(c) => {
+                self.check_expr_for_unhandled_result(&c.expr, fn_returns_result);
+            }
             _ => {}
         }
     }
@@ -1601,7 +1625,28 @@ impl UnhandledResultVisitor {
         if let syn::Expr::Path(p) = &*call.func {
             if let Some(seg) = p.path.segments.last() {
                 let name = seg.ident.to_string();
-                return !matches!(name.as_str(), "Ok" | "Err" | "Some" | "None" | "panic");
+                if matches!(name.as_str(), "Ok" | "Err" | "Some" | "None" | "panic") {
+                    return false;
+                }
+                if matches!(
+                    name.as_str(),
+                    "assert"
+                        | "assert_eq"
+                        | "assert_ne"
+                        | "debug_assert"
+                        | "debug_assert_eq"
+                        | "debug_assert_ne"
+                        | "println"
+                        | "print"
+                        | "eprintln"
+                        | "eprint"
+                        | "format"
+                        | "vec"
+                        | "panic"
+                ) {
+                    return false;
+                }
+                return true;
             }
         }
         false
@@ -1641,6 +1686,11 @@ impl UnhandledResultVisitor {
                         | "or_else"
                         | "unwrap_unchecked"
                         | "expect_unchecked"
+                        | "as_ref"
+                        | "as_mut"
+                        | "clone"
+                        | "inspect"
+                        | "inspect_err"
                 )
             }
             syn::Expr::Assign(a) => Self::is_handled(&a.right),
@@ -1654,6 +1704,7 @@ impl UnhandledResultVisitor {
                 }
                 false
             }
+            syn::Expr::Block(_) => true,
             _ => false,
         }
     }
@@ -2371,6 +2422,154 @@ mod tests {
         let source = "this is not valid rust";
         let issues = analyzer.scan_unhandled_results(source);
         assert_eq!(issues.len(), 0, "{:?}", issues);
+    }
+
+    #[test]
+    fn test_unhandled_result_assert_macro() {
+        let analyzer = Analyzer::new(SanctifyConfig::default());
+        let source = r#"
+fn returns_result() -> Result<u32, Error> { Ok(42) }
+
+#[contractimpl]
+impl MyContract {
+    pub fn test_fn(env: Env) {
+        assert!(true);
+        assert_eq!(1, 1);
+        assert_ne!(1, 2);
+        debug_assert!(true);
+        println!("test");
+        format!("test");
+    }
+}
+"#;
+        let issues = analyzer.scan_unhandled_results(source);
+        assert_eq!(
+            issues.len(),
+            0,
+            "assert/print macros should not be flagged as unhandled results: {:?}",
+            issues
+        );
+    }
+
+    #[test]
+    fn test_unhandled_result_fluent_builder() {
+        let analyzer = Analyzer::new(SanctifyConfig::default());
+        let source = r#"
+struct Builder { val: u32 }
+impl Builder {
+    fn with_value(mut self, v: u32) -> Self { self.val = v; self }
+}
+
+#[contractimpl]
+impl MyContract {
+    pub fn build(env: Env) -> u32 {
+        Builder { val: 0 }
+            .with_value(1)
+            .with_value(2)
+    }
+}
+"#;
+        let issues = analyzer.scan_unhandled_results(source);
+        assert_eq!(
+            issues.len(),
+            0,
+            "fluent builder should not be flagged: {:?}",
+            issues
+        );
+    }
+
+    #[test]
+    fn test_unhandled_result_assignment() {
+        let analyzer = Analyzer::new(SanctifyConfig::default());
+        let source = r#"
+fn returns_result() -> Result<u32, Error> { Ok(42) }
+
+#[contractimpl]
+impl MyContract {
+    pub fn test_fn(env: Env) {
+        let result = returns_result();
+        let _ = returns_result();
+    }
+}
+"#;
+        let issues = analyzer.scan_unhandled_results(source);
+        assert_eq!(
+            issues.len(),
+            2,
+            "assignment without handling should be flagged: {:?}",
+            issues
+        );
+    }
+
+    #[test]
+    fn test_unhandled_result_block_expression() {
+        let analyzer = Analyzer::new(SanctifyConfig::default());
+        let source = r#"
+fn returns_result() -> Result<u32, Error> { Ok(42) }
+
+#[contractimpl]
+impl MyContract {
+    pub fn test_fn(env: Env) -> u32 {
+        {
+            let x = 1;
+            x + 1
+        }
+    }
+}
+"#;
+        let issues = analyzer.scan_unhandled_results(source);
+        assert_eq!(
+            issues.len(),
+            0,
+            "block expressions should not be flagged: {:?}",
+            issues
+        );
+    }
+
+    #[test]
+    fn test_unhandled_result_inspect() {
+        let analyzer = Analyzer::new(SanctifyConfig::default());
+        let source = r#"
+fn returns_result() -> Result<u32, Error> { Ok(42) }
+
+#[contractimpl]
+impl MyContract {
+    pub fn test_fn(env: Env) -> u32 {
+        returns_result()
+            .inspect(|v| println!("Got {}", v))
+            .unwrap()
+    }
+}
+"#;
+        let issues = analyzer.scan_unhandled_results(source);
+        assert_eq!(
+            issues.len(),
+            0,
+            "inspect should be recognized as handled: {:?}",
+            issues
+        );
+    }
+
+    #[test]
+    fn test_unhandled_result_private_fn_not_flagged() {
+        let analyzer = Analyzer::new(SanctifyConfig::default());
+        let source = r#"
+fn returns_result() -> Result<u32, Error> { Ok(42) }
+
+#[contractimpl]
+impl MyContract {
+    fn private_fn(env: Env) {
+        returns_result();
+    }
+}
+"#;
+        let issues = analyzer.scan_unhandled_results(source);
+        assert_eq!(
+            issues.len(),
+            0,
+            "private function unhandled results should not be flagged: {:?}",
+            issues
+        );
     }
 
     #[test]

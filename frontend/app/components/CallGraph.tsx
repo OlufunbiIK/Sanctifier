@@ -108,14 +108,22 @@ export function CallGraph({ nodes, edges }: CallGraphProps) {
           Calls
         </span>
       </div>
-      <div className="overflow-auto">
-        <svg
-          width={svgWidth}
-          height={svgHeight}
-          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-          className="bg-zinc-50 dark:bg-zinc-950 rounded"
-        >
-          <defs>
+<div className="overflow-auto">
+      <svg
+        width={svgWidth}
+        height={svgHeight}
+        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+        className="bg-zinc-50 dark:bg-zinc-950 rounded"
+        role="img"
+        aria-label="Contract call graph visualization"
+      >
+        <title>Contract Call Graph</title>
+        <desc>
+          This diagram shows function calls and storage interactions within the contract.
+          Nodes represent functions, storage, and external calls. Edges show call relationships.
+          Severity indicators are shown with dashed red/orange borders.
+        </desc>
+        <defs>
             <marker
               id="arrowhead-mutates"
               markerWidth="8"

@@ -166,44 +166,44 @@ export default function DashboardPage() {
           <p className="text-sm text-zinc-600 dark:text-zinc-400 theme-high-contrast:text-white mb-4">
             Paste JSON from <code className="bg-zinc-100 dark:bg-zinc-800 theme-high-contrast:bg-zinc-900 px-1 rounded">sanctifier analyze --format json</code>, upload an existing report, or analyze a Rust contract source file.
           </p>
-          <div className="flex flex-wrap gap-2 sm:gap-4">
-            <label className="flex-1 sm:flex-none text-center cursor-pointer rounded-lg border border-zinc-300 dark:border-zinc-600 theme-high-contrast:border-white px-4 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 theme-high-contrast:hover:bg-zinc-900">
-              Upload JSON
-              <input
-                type="file"
-                accept=".json"
-                className="hidden"
-                aria-label="JSON report file"
-                data-testid="json-upload-input"
-                onChange={handleFileUpload}
-              />
-            </label>
-            <label className="flex-1 sm:flex-none text-center cursor-pointer rounded-lg border border-zinc-300 dark:border-zinc-600 theme-high-contrast:border-white px-4 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 theme-high-contrast:hover:bg-zinc-900">
-              {isUploadingContract ? "Analyzing Contract..." : "Upload Contract"}
-              <input
-                type="file"
-                accept=".rs"
-                className="hidden"
-                aria-label="Contract file"
-                data-testid="contract-upload-input"
-                onChange={handleContractUpload}
-              />
-            </label>
-            <button
-              onClick={loadReport}
-              className="flex-1 sm:flex-none rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 theme-high-contrast:bg-white theme-high-contrast:text-black px-4 py-2 text-sm font-medium hover:bg-zinc-800 dark:hover:bg-zinc-200 theme-high-contrast:hover:bg-zinc-300"
-            >
-              Parse JSON
-            </button>
-            <button
-              onClick={() => {
-                exportToPdf(findings);
-              }}
-              disabled={!hasData}
-              className="flex-1 sm:flex-none rounded-lg border border-zinc-300 dark:border-zinc-600 theme-high-contrast:border-white px-4 py-2 text-sm disabled:opacity-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 theme-high-contrast:hover:bg-zinc-900"
-            >
-              Export PDF
-            </button>
+<div className="flex flex-wrap gap-2 sm:gap-4">
+        <label className="flex-1 sm:flex-none text-center cursor-pointer rounded-lg border border-zinc-300 dark:border-zinc-600 theme-high-contrast:border-white px-4 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 theme-high-contrast:hover:bg-zinc-900 focus-within:outline-none focus-within:ring-2 focus-within:ring-zinc-400 focus-within:ring-offset-2">
+        Upload JSON
+        <input
+          type="file"
+          accept=".json"
+          className="hidden"
+          aria-label="JSON report file"
+          data-testid="json-upload-input"
+          onChange={handleFileUpload}
+        />
+      </label>
+      <label className="flex-1 sm:flex-none text-center cursor-pointer rounded-lg border border-zinc-300 dark:border-zinc-600 theme-high-contrast:border-white px-4 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 theme-high-contrast:hover:bg-zinc-900 focus-within:outline-none focus-within:ring-2 focus-within:ring-zinc-400 focus-within:ring-offset-2">
+        {isUploadingContract ? "Analyzing Contract..." : "Upload Contract"}
+        <input
+          type="file"
+          accept=".rs"
+          className="hidden"
+          aria-label="Contract file"
+          data-testid="contract-upload-input"
+          onChange={handleContractUpload}
+        />
+      </label>
+<button
+          onClick={loadReport}
+          className="flex-1 sm:flex-none rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 theme-high-contrast:bg-white theme-high-contrast:text-black px-4 py-2 text-sm font-medium hover:bg-zinc-800 dark:hover:bg-zinc-200 theme-high-contrast:hover:bg-zinc-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
+        >
+          Parse JSON
+        </button>
+        <button
+          onClick={() => {
+            exportToPdf(findings);
+          }}
+          disabled={!hasData}
+          className="flex-1 sm:flex-none rounded-lg border border-zinc-300 dark:border-zinc-600 theme-high-contrast:border-white px-4 py-2 text-sm disabled:opacity-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 theme-high-contrast:hover:bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:focus-visible:ring-0"
+        >
+          Export PDF
+        </button>
           </div>
           {uploadStatus && (
             <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400" role="status" aria-live="polite">
@@ -228,47 +228,57 @@ export default function DashboardPage() {
               <SummaryChart findings={findings} />
             </section>
 
-            {/* Tab navigation */}
-            <div className="flex gap-2 border-b border-zinc-200 dark:border-zinc-700 theme-high-contrast:border-white">
-              <button
-                onClick={() => setActiveTab("findings")}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "findings"
-                    ? "border-zinc-900 dark:border-zinc-100 theme-high-contrast:border-yellow-300 text-zinc-900 dark:text-zinc-100 theme-high-contrast:text-yellow-300"
-                    : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 theme-high-contrast:text-white theme-high-contrast:hover:text-yellow-300"
-                  }`}
-              >
-                Findings
-              </button>
-              <button
-                onClick={() => setActiveTab("callgraph")}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "callgraph"
-                    ? "border-zinc-900 dark:border-zinc-100 theme-high-contrast:border-yellow-300 text-zinc-900 dark:text-zinc-100 theme-high-contrast:text-yellow-300"
-                    : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 theme-high-contrast:text-white theme-high-contrast:hover:text-yellow-300"
-                  }`}
-              >
-                Call Graph
-              </button>
-            </div>
+{/* Tab navigation */}
+      <div className="flex gap-2 border-b border-zinc-200 dark:border-zinc-700 theme-high-contrast:border-white" role="tablist" aria-label="Analysis view tabs">
+        <button
+          onClick={() => setActiveTab("findings")}
+          role="tab"
+          aria-selected={activeTab === "findings"}
+          aria-controls="findings-panel"
+          id="findings-tab"
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400 ${
+            activeTab === "findings"
+              ? "border-zinc-900 dark:border-zinc-100 theme-high-contrast:border-yellow-300 text-zinc-900 dark:text-zinc-100 theme-high-contrast:text-yellow-300"
+              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 theme-high-contrast:text-white theme-high-contrast:hover:text-yellow-300"
+          }`}
+        >
+          Findings
+        </button>
+        <button
+          onClick={() => setActiveTab("callgraph")}
+          role="tab"
+          aria-selected={activeTab === "callgraph"}
+          aria-controls="callgraph-panel"
+          id="callgraph-tab"
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-400 ${
+            activeTab === "callgraph"
+              ? "border-zinc-900 dark:border-zinc-100 theme-high-contrast:border-yellow-300 text-zinc-900 dark:text-zinc-100 theme-high-contrast:text-yellow-300"
+              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 theme-high-contrast:text-white theme-high-contrast:hover:text-yellow-300"
+          }`}
+        >
+          Call Graph
+        </button>
+      </div>
 
-            {activeTab === "findings" && (
-              <>
-                <section>
-                  <h2 className="text-lg font-semibold mb-4">Filter by Severity</h2>
-                  <SeverityFilter selected={severityFilter} onChange={setSeverityFilter} />
-                </section>
+      {activeTab === "findings" && (
+        <>
+          <section>
+            <h2 className="text-lg font-semibold mb-4">Filter by Severity</h2>
+            <SeverityFilter selected={severityFilter} onChange={setSeverityFilter} />
+          </section>
 
-                <section>
-                  <h2 className="text-lg font-semibold mb-4">Findings</h2>
-                  <FindingsList findings={findings} severityFilter={severityFilter} />
-                </section>
-              </>
-            )}
+          <section id="findings-panel" role="tabpanel" aria-labelledby="findings-tab">
+            <h2 className="text-lg font-semibold mb-4">Findings</h2>
+            <FindingsList findings={findings} severityFilter={severityFilter} />
+          </section>
+        </>
+      )}
 
-            {activeTab === "callgraph" && (
-              <section>
-                <CallGraph nodes={callGraphNodes} edges={callGraphEdges} />
-              </section>
-            )}
+      {activeTab === "callgraph" && (
+        <section id="callgraph-panel" role="tabpanel" aria-labelledby="callgraph-tab">
+          <CallGraph nodes={callGraphNodes} edges={callGraphEdges} />
+        </section>
+      )}
           </>
         )}
 

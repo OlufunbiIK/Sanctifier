@@ -15,6 +15,13 @@ const severityColors: Record<Severity, string> = {
   low: "bg-zinc-500/10 border-zinc-500/50 text-zinc-700 dark:text-zinc-400 theme-high-contrast:bg-black theme-high-contrast:border-white theme-high-contrast:text-yellow-300",
 };
 
+const severityLabels: Record<Severity, string> = {
+  critical: "Critical severity",
+  high: "High severity",
+  medium: "Medium severity",
+  low: "Low severity",
+};
+
 export function FindingsList({ findings, severityFilter }: FindingsListProps) {
   const filtered =
     severityFilter === "all"
@@ -44,13 +51,12 @@ export function FindingsList({ findings, severityFilter }: FindingsListProps) {
                   <p className="mt-2 text-sm italic">💡 {f.suggestion}</p>
                 )}
               </div>
-              <span
-                className={`shrink-0 rounded px-2 py-1 text-xs font-medium border ${
-                  severityColors[f.severity]
-                }`}
-              >
-                {f.severity}
-              </span>
+<span
+              className={`shrink-0 rounded px-2 py-1 text-xs font-medium border ${severityColors[f.severity]}`}
+              aria-label={severityLabels[f.severity]}
+            >
+              {f.severity}
+            </span>
             </div>
             {f.snippet && (
               <div className="mt-3">

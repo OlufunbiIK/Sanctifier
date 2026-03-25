@@ -8,6 +8,50 @@ export const runtime = "nodejs";
 
 const REPO_ROOT = path.resolve(process.cwd(), "..");
 const SUPPORTED_SOURCE_EXTENSIONS = new Set([".rs"]);
+const MAX_FILE_SIZE_BYTES = 250 * 1024;
+const EXECUTION_TIMEOUT_MS = 30000;
+const RATE_LIMIT_REQUESTS_PER_MINUTE = 10;
+
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+function getClientIP(request: NextRequest): string {
+  const xForwardedFor = request.headers.get("x-forwarded-for");
+  if (xForwardedFor) {
+    return xForwardedFor.split(",")[0].trim();
+  }
+  const xRealIP = request.headers.get("x-real-ip");
+  if (xRealIP) {
+    return xRealIP;
+  }
+  return "unknown";
+}
+
+function checkRateLimit(ip: string): { allowed: boolean; retryAfter: number } {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  
+  if (!entry || now > entry.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + 60000 });
+    return { allowed: true, retryAfter: 0 };
+  }
+  
+  if (entry.count >= RATE_LIMIT_REQUESTS_PER_MINUTE) {
+    const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+  
+  entry.count++;
+  return { allowed: true, retryAfter: 0 };
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitMap.entries()) {
+    if (now > entry.resetTime) {
+      rateLimitMap.delete(ip);
+    }
+  }
+}, 60000);
 
 type ProcessResult = {
   stdout: string;
@@ -15,7 +59,7 @@ type ProcessResult = {
   exitCode: number | null;
 };
 
-function runAnalyzeCommand(args: string[]): Promise<ProcessResult> {
+function runAnalyzeCommand(args: string[], timeoutMs: number): Promise<ProcessResult> {
   return new Promise((resolve, reject) => {
     const cliProcess = spawn("cargo", args, {
       cwd: REPO_ROOT,
@@ -23,6 +67,23 @@ function runAnalyzeCommand(args: string[]): Promise<ProcessResult> {
     });
     let stdout = "";
     let stderr = "";
+    let timeoutId: NodeJS.Timeout | null = null;
+    let completed = false;
+
+    const cleanup = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+
+    timeoutId = setTimeout(() => {
+      if (!completed) {
+        completed = true;
+        cleanup();
+        cliProcess.kill("SIGTERM");
+        reject(new Error(`Analysis timed out after ${timeoutMs / 1000} seconds`));
+      }
+    }, timeoutMs);
 
     cliProcess.stdout.on("data", (data) => {
       stdout += data.toString();
@@ -33,10 +94,20 @@ function runAnalyzeCommand(args: string[]): Promise<ProcessResult> {
     });
 
     cliProcess.on("close", (exitCode) => {
-      resolve({ stdout, stderr, exitCode });
+      if (!completed) {
+        completed = true;
+        cleanup();
+        resolve({ stdout, stderr, exitCode });
+      }
     });
 
-    cliProcess.on("error", reject);
+    cliProcess.on("error", (err) => {
+      if (!completed) {
+        completed = true;
+        cleanup();
+        reject(err);
+      }
+    });
   });
 }
 
@@ -50,6 +121,26 @@ function parseJsonResponse(body: string): unknown | null {
   } catch {
     return null;
   }
+}
+
+function isValidUtf8(buffer: Buffer): boolean {
+  try {
+    buffer.toString("utf8");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeFileName(name: string): string {
+  const sanitized = name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  if (sanitized === "" || sanitized === "." || sanitized === "..") {
+    return "contract.rs";
+  }
+  if (sanitized.startsWith(".") && sanitized.length === 1) {
+    return "contract.rs";
+  }
+  return sanitized;
 }
 
 export async function GET(request: NextRequest) {
@@ -117,11 +208,31 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const clientIP = getClientIP(request);
+  const rateLimitResult = checkRateLimit(clientIP);
+  
+  if (!rateLimitResult.allowed) {
+    return Response.json(
+      { error: "Rate limit exceeded. Please try again later." },
+      { 
+        status: 429,
+        headers: { "Retry-After": rateLimitResult.retryAfter.toString() }
+      }
+    );
+  }
+
   const formData = await request.formData();
   const contract = formData.get("contract");
 
   if (!(contract instanceof File)) {
     return Response.json({ error: "Attach a Rust contract source file." }, { status: 400 });
+  }
+
+  if (contract.size > MAX_FILE_SIZE_BYTES) {
+    return Response.json(
+      { error: `File size exceeds limit of ${MAX_FILE_SIZE_BYTES / 1024} KB.` },
+      { status: 413 }
+    );
   }
 
   const extension = path.extname(contract.name).toLowerCase();
@@ -133,24 +244,25 @@ export async function POST(request: NextRequest) {
   }
 
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "sanctifier-contract-"));
-  const fileName = contract.name.replace(/[^a-zA-Z0-9._-]/g, "_") || `contract${extension}`;
+  const fileName = sanitizeFileName(contract.name);
   const contractPath = path.join(tempDir, fileName);
 
   try {
     const fileBuffer = Buffer.from(await contract.arrayBuffer());
+    
+    if (!isValidUtf8(fileBuffer)) {
+      return Response.json(
+        { error: "File content is not valid UTF-8." },
+        { status: 400 }
+      );
+    }
+    
     await writeFile(contractPath, fileBuffer);
 
-    const { stdout, stderr, exitCode } = await runAnalyzeCommand([
-      "run",
-      "--quiet",
-      "--bin",
-      "sanctifier",
-      "--",
-      "analyze",
-      contractPath,
-      "--format",
-      "json",
-    ]);
+    const { stdout, stderr, exitCode } = await runAnalyzeCommand(
+      ["run", "--quiet", "--bin", "sanctifier", "--", "analyze", contractPath, "--format", "json"],
+      EXECUTION_TIMEOUT_MS
+    );
     const report = parseJsonResponse(stdout);
 
     if (report) {
@@ -167,6 +279,12 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   } catch (error) {
+    if (error instanceof Error && error.message.includes("timed out")) {
+      return Response.json(
+        { error: "Analysis timed out. Please try with a smaller contract." },
+        { status: 504 }
+      );
+    }
     return Response.json(
       {
         error:
@@ -175,6 +293,6 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   } finally {
-    await rm(tempDir, { recursive: true, force: true });
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }
 }

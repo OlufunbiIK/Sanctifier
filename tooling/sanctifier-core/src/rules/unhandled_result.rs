@@ -115,6 +115,11 @@ impl ResultVisitor {
                         | "or_else"
                         | "unwrap_unchecked"
                         | "expect_unchecked"
+                        | "as_ref"
+                        | "as_mut"
+                        | "clone"
+                        | "inspect"
+                        | "inspect_err"
                 )
             }
             syn::Expr::Assign(a) => Self::is_handled(&a.right),
@@ -128,6 +133,7 @@ impl ResultVisitor {
                 }
                 false
             }
+            syn::Expr::Block(_) => true,
             _ => false,
         }
     }
@@ -136,7 +142,28 @@ impl ResultVisitor {
         if let syn::Expr::Path(p) = &*call.func {
             if let Some(seg) = p.path.segments.last() {
                 let name = seg.ident.to_string();
-                return !matches!(name.as_str(), "Ok" | "Err" | "Some" | "None" | "panic");
+                if matches!(name.as_str(), "Ok" | "Err" | "Some" | "None" | "panic") {
+                    return false;
+                }
+                if matches!(
+                    name.as_str(),
+                    "assert"
+                        | "assert_eq"
+                        | "assert_ne"
+                        | "debug_assert"
+                        | "debug_assert_eq"
+                        | "debug_assert_ne"
+                        | "println"
+                        | "print"
+                        | "eprintln"
+                        | "eprint"
+                        | "format"
+                        | "vec"
+                        | "panic"
+                ) {
+                    return false;
+                }
+                return true;
             }
         }
         false
