@@ -17,7 +17,7 @@ and optionally proves invariants with Z3.
 
 ---
 
-## Table of Contents
+## Table of Content
 
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
