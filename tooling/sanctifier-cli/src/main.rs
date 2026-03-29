@@ -23,6 +23,8 @@ struct Cli {
 pub enum Commands {
     /// Analyze a Soroban contract for vulnerabilities
     Analyze(commands::analyze::AnalyzeArgs),
+    /// Compare current scan results against a baseline to find only NEW vulnerabilities
+    Diff(commands::diff::DiffArgs),
     /// Generate a dynamic Sanctifier status badge
     Badge(commands::badge::BadgeArgs),
     /// Generate a Markdown or HTML security report
@@ -60,6 +62,7 @@ fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let log_output = match &cli.command {
         Commands::Analyze(args) if args.format == "json" => logging::LogOutput::Json,
+        Commands::Diff(args) if args.format == "json" => logging::LogOutput::Json,
         Commands::Storage(args) if args.format == commands::storage::OutputFormat::Json => {
             logging::LogOutput::Json
         }
@@ -69,6 +72,7 @@ fn run() -> anyhow::Result<()> {
 
     match cli.command {
         Commands::Analyze(args) => commands::analyze::exec(args)?,
+        Commands::Diff(args) => commands::diff::exec(args)?,
         Commands::Badge(args) => {
             commands::badge::exec(args)?;
         }

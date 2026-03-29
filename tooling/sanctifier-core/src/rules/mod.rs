@@ -15,6 +15,8 @@ pub mod panic_detection;
 pub mod reentrancy;
 /// Shadow storage pattern detection.
 pub mod shadow_storage;
+/// Integer truncation and unchecked bounds detection.
+pub mod truncation_bounds;
 /// Unhandled `Result` values.
 pub mod unhandled_result;
 /// Unused local variables.
@@ -172,6 +174,7 @@ impl RuleRegistry {
         registry.register(unused_variable::UnusedVariableRule::new());
         registry.register(shadow_storage::ShadowStorageRule::new());
         registry.register(reentrancy::ReentrancyRule::new());
+        registry.register(truncation_bounds::TruncationBoundsRule::new());
         registry
     }
 }

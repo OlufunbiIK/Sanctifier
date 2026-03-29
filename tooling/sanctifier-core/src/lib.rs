@@ -76,6 +76,7 @@ pub use smt::SmtInvariantIssue;
 
 // Redundant imports removed
 use crate::rules::arithmetic_overflow::ArithVisitor;
+use crate::rules::truncation_bounds::TruncationBoundsVisitor;
 
 const DEFAULT_STRICT_THRESHOLD: f64 = 0.9;
 fn with_panic_guard<F, R>(f: F) -> R
@@ -314,6 +315,23 @@ pub struct ArithmeticIssue {
     /// The operator: "+", "-", "*", "+=", "-=", "*=".
     pub operation: String,
     /// Human-readable suggestion pointing to the safe alternative.
+    pub suggestion: String,
+    /// "function_name:line" context string.
+    pub location: String,
+}
+
+// ── TruncationBoundsIssue ────────────────────────────────────────────────────
+
+/// Represents an integer truncation cast or unchecked array/slice indexing.
+#[derive(Debug, Serialize, Clone)]
+pub struct TruncationBoundsIssue {
+    /// Contract function in which the issue was found.
+    pub function_name: String,
+    /// The kind of issue: `"truncation"` or `"unchecked_index"`.
+    pub kind: String,
+    /// The problematic expression (e.g. `as u32`, `buf[i]`).
+    pub expression: String,
+    /// Human-readable suggestion for a safe alternative.
     pub suggestion: String,
     /// "function_name:line" context string.
     pub location: String,
@@ -1154,6 +1172,31 @@ impl Analyzer {
             current_fn: None,
             seen: HashSet::new(),
             index_depth: 0,
+            test_mod_depth: 0,
+        };
+        visitor.visit_file(&file);
+        visitor.issues
+    }
+
+    // ── Truncation / bounds risk detection ───────────────────────────────────
+
+    /// Detects narrowing integer casts (`as u32`, `as u16`, `as u8`, etc.) and
+    /// unchecked array/slice indexing that could cause truncation or
+    /// out-of-bounds panics.
+    pub fn scan_truncation_bounds(&self, source: &str) -> Vec<TruncationBoundsIssue> {
+        with_panic_guard(|| self.scan_truncation_bounds_impl(source))
+    }
+
+    fn scan_truncation_bounds_impl(&self, source: &str) -> Vec<TruncationBoundsIssue> {
+        let file = match parse_str::<File>(source) {
+            Ok(f) => f,
+            Err(_) => return vec![],
+        };
+
+        let mut visitor = TruncationBoundsVisitor {
+            issues: Vec::new(),
+            current_fn: None,
+            seen: HashSet::new(),
             test_mod_depth: 0,
         };
         visitor.visit_file(&file);
@@ -3190,6 +3233,12 @@ impl UpgradeFinding {
 }
 impl ArithmeticIssue {
     /// Returns the severity level of this arithmetic issue.
+    pub fn severity(&self) -> crate::finding_codes::FindingSeverity {
+        crate::finding_codes::FindingSeverity::High
+    }
+}
+impl TruncationBoundsIssue {
+    /// Returns the severity level of this truncation/bounds issue.
     pub fn severity(&self) -> crate::finding_codes::FindingSeverity {
         crate::finding_codes::FindingSeverity::High
     }

@@ -95,6 +95,7 @@ pub(crate) struct FileAnalysisResult {
     pub(crate) unhandled_results: Vec<sanctifier_core::UnhandledResultIssue>,
     pub(crate) upgrade_reports: Vec<sanctifier_core::UpgradeReport>,
     pub(crate) smt_issues: Vec<sanctifier_core::smt::SmtInvariantIssue>,
+    pub(crate) truncation_bounds_issues: Vec<sanctifier_core::TruncationBoundsIssue>,
     pub(crate) sep41_checked_contracts: Vec<String>,
     pub(crate) sep41_issues: Vec<sanctifier_core::Sep41Issue>,
     pub(crate) timed_out: bool,
@@ -210,6 +211,7 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
     let mut unhandled_results = Vec::new();
     let mut upgrade_reports = Vec::new();
     let mut smt_issues = Vec::new();
+    let mut truncation_bounds_issues = Vec::new();
     let mut sep41_checked_contracts = Vec::new();
     let mut sep41_issues = Vec::new();
     let mut timed_out_files: Vec<String> = Vec::new();
@@ -227,6 +229,7 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
         unhandled_results.extend(r.unhandled_results);
         upgrade_reports.extend(r.upgrade_reports);
         smt_issues.extend(r.smt_issues);
+        truncation_bounds_issues.extend(r.truncation_bounds_issues);
         sep41_checked_contracts.extend(r.sep41_checked_contracts);
         sep41_issues.extend(r.sep41_issues);
         if r.timed_out {
@@ -245,6 +248,7 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
         + unhandled_results.len()
         + upgrade_reports.iter().map(|r| r.findings.len()).sum::<usize>()
         + smt_issues.len()
+        + truncation_bounds_issues.len()
         + sep41_issues.len()
         + timed_out_files.len();
 
@@ -283,6 +287,9 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
             .iter()
             .any(|i| i.severity() == finding_codes::FindingSeverity::High)
         || unhandled_results
+            .iter()
+            .any(|i| i.severity() == finding_codes::FindingSeverity::High)
+        || truncation_bounds_issues
             .iter()
             .any(|i| i.severity() == finding_codes::FindingSeverity::High);
 
@@ -336,6 +343,7 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
             "auth_gaps": auth_gaps,
             "panic_issues": panic_issues,
             "arithmetic_issues": arithmetic_issues,
+            "truncation_bounds_issues": truncation_bounds_issues,
             "custom_rules": custom_matches,
             "event_issues": event_issues,
             "unhandled_results": unhandled_results,
@@ -361,6 +369,7 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
                 "auth_gaps": auth_gaps.len(),
                 "panic_issues": panic_issues.len(),
                 "arithmetic_issues": arithmetic_issues.len(),
+                "truncation_bounds_issues": truncation_bounds_issues.len(),
                 "size_warnings": size_warnings.len(),
                 "unsafe_patterns": unsafe_patterns.len(),
                 "custom_rule_matches": custom_matches.len(),
@@ -420,6 +429,16 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
         for issue in &arithmetic_issues {
             println!("   {} [{}] Op: {}", "->".red(), finding_codes::ARITHMETIC_OVERFLOW.bold(), issue.operation.bold());
             println!("      Location: {}", issue.location);
+        }
+    }
+    if truncation_bounds_issues.is_empty() {
+        println!("{} No integer truncation or unchecked indexing found.", "✅".green());
+    } else {
+        println!("\n{} Found Truncation / Bounds Risk issues!", "⚠️".yellow());
+        for issue in &truncation_bounds_issues {
+            println!("   {} [{}] Kind: {} | Expr: {}", "->".red(), finding_codes::TRUNCATION_BOUNDS.bold(), issue.kind.bold(), issue.expression.bold());
+            println!("      Location: {}", issue.location);
+            println!("      Suggestion: {}", issue.suggestion);
         }
     }
     if size_warnings.is_empty() {
@@ -535,6 +554,10 @@ pub(crate) fn analyze_single_file(
     let mut a = analyzer.scan_arithmetic_overflow(content);
     for i in &mut a { i.location = format!("{}:{}", file_name, i.location); }
     res.arithmetic_issues = a;
+
+    let mut tb = analyzer.scan_truncation_bounds(content);
+    for i in &mut tb { i.location = format!("{}:{}", file_name, i.location); }
+    res.truncation_bounds_issues = tb;
 
     let mut custom = analyzer.analyze_custom_rules(content, &analyzer.config.custom_rules);
     for m in &mut custom { m.snippet = format!("{}:{}: {}", file_name, m.line, m.snippet); }
