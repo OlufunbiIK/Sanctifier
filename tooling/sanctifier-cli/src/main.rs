@@ -49,6 +49,10 @@ pub enum Commands {
     Update,
     /// Detect reentrancy vulnerabilities (state mutation before external call)
     Reentrancy(commands::reentrancy::ReentrancyArgs),
+    /// Check that the local development environment has all required tools
+    Doctor(commands::doctor::DoctorArgs),
+    /// Verify that locally built WASM bytecode matches the on-chain deployment
+    Verify(commands::verify::VerifyArgs),
 }
 
 fn main() {
@@ -144,6 +148,12 @@ fn run() -> anyhow::Result<()> {
         }
         Commands::Reentrancy(args) => {
             commands::reentrancy::exec(args)?;
+        }
+        Commands::Doctor(args) => {
+            commands::doctor::exec(args)?;
+        }
+        Commands::Verify(args) => {
+            commands::verify::exec(args)?;
         }
     }
 
