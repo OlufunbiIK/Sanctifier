@@ -1,8 +1,8 @@
 #![cfg(test)]
 
+use crate::{Token, TokenClient};
 use bolero::{check, generator::*};
 use soroban_sdk::{testutils::Address as _, Address, Env, String};
-use crate::{Token, TokenClient};
 
 fn fresh_client(env: &Env) -> (TokenClient<'_>, Address) {
     let admin = Address::generate(env);

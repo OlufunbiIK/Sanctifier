@@ -223,7 +223,7 @@
                         "symbol": "executed"
                       },
                       "val": {
-                        "bool": false
+                        "bool": true
                       }
                     }
                   ]
@@ -289,7 +289,7 @@
                           ]
                         },
                         "val": {
-                          "u32": 2
+                          "u32": 3
                         }
                       }
                     ]
@@ -930,26 +930,24 @@
       "event": {
         "ext": "v0",
         "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
-        "type_": "diagnostic",
+        "type_": "contract",
         "body": {
           "v0": {
             "topics": [
               {
-                "symbol": "error"
+                "symbol": "executed"
               },
               {
-                "error": {
-                  "context": "invalid_action"
-                }
+                "bytes": "51024e3fa4903b6639b0ec0c6186bcab140b53e47d2935c50e8041d8b205da66"
               }
             ],
             "data": {
-              "string": "Contract re-entry is not allowed"
+              "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
             }
           }
         }
       },
-      "failed_call": true
+      "failed_call": false
     },
     {
       "event": {
@@ -960,133 +958,13 @@
           "v0": {
             "topics": [
               {
-                "symbol": "error"
+                "symbol": "fn_return"
               },
               {
-                "error": {
-                  "context": "invalid_action"
-                }
+                "symbol": "execute"
               }
             ],
-            "data": {
-              "vec": [
-                {
-                  "string": "contract call failed"
-                },
-                {
-                  "symbol": "set_threshold"
-                },
-                {
-                  "vec": [
-                    {
-                      "u32": 3
-                    }
-                  ]
-                }
-              ]
-            }
-          }
-        }
-      },
-      "failed_call": true
-    },
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
-        "type_": "diagnostic",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "error"
-              },
-              {
-                "error": {
-                  "context": "invalid_action"
-                }
-              }
-            ],
-            "data": {
-              "string": "escalating error to panic"
-            }
-          }
-        }
-      },
-      "failed_call": true
-    },
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
-        "type_": "diagnostic",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "error"
-              },
-              {
-                "error": {
-                  "context": "invalid_action"
-                }
-              }
-            ],
-            "data": {
-              "string": "caught error from function"
-            }
-          }
-        }
-      },
-      "failed_call": true
-    },
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": null,
-        "type_": "diagnostic",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "error"
-              },
-              {
-                "error": {
-                  "context": "invalid_action"
-                }
-              }
-            ],
-            "data": {
-              "vec": [
-                {
-                  "string": "contract try_call failed"
-                },
-                {
-                  "symbol": "execute"
-                },
-                {
-                  "vec": [
-                    {
-                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
-                    },
-                    {
-                      "symbol": "set_threshold"
-                    },
-                    {
-                      "vec": [
-                        {
-                          "u32": 3
-                        }
-                      ]
-                    },
-                    {
-                      "bytes": "0000000000000000000000000000000000000000000000000000000000000000"
-                    }
-                  ]
-                }
-              ]
-            }
+            "data": "void"
           }
         }
       },

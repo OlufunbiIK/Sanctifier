@@ -1,8 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, Address, Bytes, Env,
-    Symbol, Vec, Val, xdr::ToXdr,
+    contract, contracterror, contractimpl, contracttype, symbol_short, xdr::ToXdr, Address, Bytes,
+    Env, IntoVal, Symbol, Val, Vec,
 };
 
 #[cfg(test)]
@@ -22,13 +22,14 @@ pub enum Error {
     ThresholdNotMet = 8,
     AlreadyExecuted = 9,
     AlreadyCancelled = 10,
+    InvalidArguments = 11,
 }
 
 #[contracttype]
 pub enum DataKey {
     Signers,
     Threshold,
-    Proposal(Bytes),           // Proposal Hash -> Info
+    Proposal(Bytes),          // Proposal Hash -> Info
     Approval(Bytes, Address), // (Hash, Signer) -> bool
 }
 
@@ -55,15 +56,26 @@ impl MultisigWallet {
         }
 
         env.storage().instance().set(&DataKey::Signers, &signers);
-        env.storage().instance().set(&DataKey::Threshold, &threshold);
+        env.storage()
+            .instance()
+            .set(&DataKey::Threshold, &threshold);
     }
 
     /// Create a new proposal.
-    pub fn propose(env: Env, target: Address, function: Symbol, args: Vec<Val>, salt: Bytes) -> Bytes {
+    pub fn propose(
+        env: Env,
+        target: Address,
+        function: Symbol,
+        args: Vec<Val>,
+        salt: Bytes,
+    ) -> Bytes {
         let hash = Self::calculate_hash(&env, &target, &function, &args, &salt);
-        
-        if env.storage().persistent().has(&DataKey::Proposal(hash.clone())) {
-            // Proposal already exists, no need to overwrite but could allow re-proposing if cancelled?
+
+        if env
+            .storage()
+            .persistent()
+            .has(&DataKey::Proposal(hash.clone()))
+        {
             return hash;
         }
 
@@ -73,11 +85,13 @@ impl MultisigWallet {
             cancelled: false,
         };
 
-        env.storage().persistent().set(&DataKey::Proposal(hash.clone()), &info);
-        
+        env.storage()
+            .persistent()
+            .set(&DataKey::Proposal(hash.clone()), &info);
+
         env.events().publish(
             (symbol_short!("proposed"), hash.clone()),
-            (target, function)
+            (target, function),
         );
 
         hash
@@ -86,8 +100,7 @@ impl MultisigWallet {
     /// Approve a proposal.
     pub fn approve(env: Env, signer: Address, hash: Bytes) {
         signer.require_auth();
-        
-        // Verify signer
+
         let signers: Vec<Address> = env.storage().instance().get(&DataKey::Signers).unwrap();
         if !signers.contains(&signer) {
             env.panic_with_error(Error::Unauthorized);
@@ -112,16 +125,25 @@ impl MultisigWallet {
         }
 
         info.approval_count += 1;
-        env.storage().persistent().set(&DataKey::Proposal(hash.clone()), &info);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Proposal(hash.clone()), &info);
         env.storage().persistent().set(&approval_key, &true);
 
-        env.events().publish((symbol_short!("approved"), hash), signer.clone());
+        env.events()
+            .publish((symbol_short!("approved"), hash), signer.clone());
     }
 
     /// Execute a proposal if the threshold is met.
-    pub fn execute(env: Env, target: Address, function: Symbol, args: Vec<Val>, salt: Bytes) -> Val {
+    pub fn execute(
+        env: Env,
+        target: Address,
+        function: Symbol,
+        args: Vec<Val>,
+        salt: Bytes,
+    ) -> Val {
         let hash = Self::calculate_hash(&env, &target, &function, &args, &salt);
-        
+
         let mut info: ProposalInfo = env
             .storage()
             .persistent()
@@ -141,19 +163,65 @@ impl MultisigWallet {
         }
 
         info.executed = true;
-        env.storage().persistent().set(&DataKey::Proposal(hash.clone()), &info);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Proposal(hash.clone()), &info);
 
-        let result = env.invoke_contract::<Val>(&target, &function, args);
-        env.events().publish((symbol_short!("executed"), hash), target);
+        // Native routing for self-calls to bypass recursion and authorization issues.
+        // This is the most robust way to handle administrative self-governance in Soroban.
+        let result = if target == env.current_contract_address() {
+            if function == Symbol::new(&env, "add_signer") {
+                let signer: Address = args.get(0).unwrap().into_val(&env);
+                Self::internal_add_signer(&env, signer);
+                ().into_val(&env)
+            } else if function == Symbol::new(&env, "remove_signer") {
+                let signer: Address = args.get(0).unwrap().into_val(&env);
+                Self::internal_remove_signer(&env, signer);
+                ().into_val(&env)
+            } else if function == Symbol::new(&env, "set_threshold") {
+                let threshold: u32 = args.get(0).unwrap().into_val(&env);
+                Self::internal_set_threshold(&env, threshold);
+                ().into_val(&env)
+            } else if function == Symbol::new(&env, "cancel") {
+                let hash_to_cancel: Bytes = args.get(0).unwrap().into_val(&env);
+                Self::internal_cancel(&env, hash_to_cancel);
+                ().into_val(&env)
+            } else {
+                env.panic_with_error(Error::InvalidArguments);
+            }
+        } else {
+            env.invoke_contract::<Val>(&target, &function, args)
+        };
+
+        env.events()
+            .publish((symbol_short!("executed"), hash), target);
         result
     }
 
-    /// Cancel a proposal. Can be called by the multisig itself (governance) or a proposer?
-    /// For simplicity, let's allow any signer to cancel if they can get a majority? 
-    /// Or just the multisig itself can cancel (meaning a proposal to cancel).
+    /// Public wrapper for cancel (requires contract's own auth for top-level call)
     pub fn cancel(env: Env, hash: Bytes) {
         env.current_contract_address().require_auth();
+        Self::internal_cancel(&env, hash);
+    }
 
+    pub fn add_signer(env: Env, signer: Address) {
+        env.current_contract_address().require_auth();
+        Self::internal_add_signer(&env, signer);
+    }
+
+    pub fn remove_signer(env: Env, signer: Address) {
+        env.current_contract_address().require_auth();
+        Self::internal_remove_signer(&env, signer);
+    }
+
+    pub fn set_threshold(env: Env, threshold: u32) {
+        env.current_contract_address().require_auth();
+        Self::internal_set_threshold(&env, threshold);
+    }
+
+    // --- Internal Helpers ---
+
+    fn internal_cancel(env: &Env, hash: Bytes) {
         let mut info: ProposalInfo = env
             .storage()
             .persistent()
@@ -165,15 +233,14 @@ impl MultisigWallet {
         }
 
         info.cancelled = true;
-        env.storage().persistent().set(&DataKey::Proposal(hash.clone()), &info);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Proposal(hash.clone()), &info);
 
         env.events().publish((symbol_short!("cancelled"), hash), ());
     }
 
-    // --- Admin functions (must be called via the multisig itself) ---
-
-    pub fn add_signer(env: Env, signer: Address) {
-        env.current_contract_address().require_auth();
+    fn internal_add_signer(env: &Env, signer: Address) {
         let mut signers: Vec<Address> = env.storage().instance().get(&DataKey::Signers).unwrap();
         if !signers.contains(&signer) {
             signers.push_back(signer);
@@ -181,8 +248,7 @@ impl MultisigWallet {
         }
     }
 
-    pub fn remove_signer(env: Env, signer: Address) {
-        env.current_contract_address().require_auth();
+    fn internal_remove_signer(env: &Env, signer: Address) {
         let mut signers: Vec<Address> = env.storage().instance().get(&DataKey::Signers).unwrap();
         let threshold: u32 = env.storage().instance().get(&DataKey::Threshold).unwrap();
 
@@ -195,16 +261,16 @@ impl MultisigWallet {
         }
     }
 
-    pub fn set_threshold(env: Env, threshold: u32) {
-        env.current_contract_address().require_auth();
+    fn internal_set_threshold(env: &Env, threshold: u32) {
         let signers: Vec<Address> = env.storage().instance().get(&DataKey::Signers).unwrap();
         if threshold == 0 || threshold > signers.len() {
             env.panic_with_error(Error::InvalidThreshold);
         }
-        env.storage().instance().set(&DataKey::Threshold, &threshold);
+        env.storage()
+            .instance()
+            .set(&DataKey::Threshold, &threshold);
     }
 
-    // --- Internal Helpers ---
     fn calculate_hash(
         env: &Env,
         target: &Address,
@@ -217,7 +283,7 @@ impl MultisigWallet {
         data.append(&function.clone().to_xdr(env));
         data.append(&args.clone().to_xdr(env));
         data.append(&salt.clone().to_xdr(env));
-        
+
         env.crypto().sha256(&data).into()
     }
 }

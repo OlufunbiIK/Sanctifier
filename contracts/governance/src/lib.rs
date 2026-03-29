@@ -1,8 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, vec, Address, Env, Symbol,
-    Val, Vec, IntoVal, xdr::ToXdr, token, BytesN,
+    contract, contracterror, contractimpl, contracttype, symbol_short, token, vec, xdr::ToXdr,
+    Address, BytesN, Env, IntoVal, Symbol, Val, Vec,
 };
 
 #[cfg(test)]
@@ -40,10 +40,10 @@ pub enum ProposalState {
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DataKey {
-    Config,                  // GovernanceConfig
-    Proposal(u32),           // u32 -> Proposal
-    Votes(u32, Address),     // (id, voter) -> bool
-    LatestId,                // u32
+    Config,              // GovernanceConfig
+    Proposal(u32),       // u32 -> Proposal
+    Votes(u32, Address), // (id, voter) -> bool
+    LatestId,            // u32
 }
 
 #[contracttype]
@@ -51,10 +51,10 @@ pub enum DataKey {
 pub struct GovernanceConfig {
     pub token: Address,
     pub timelock: Address,
-    pub quorum_bps: u32,       // in basis points (1/10000)
-    pub threshold_bps: u32,    // majority required (e.g. 5001 for >50%)
-    pub voting_period: u64,    // in seconds
-    pub voting_delay: u64,     // in seconds
+    pub quorum_bps: u32,          // in basis points (1/10000)
+    pub threshold_bps: u32,       // majority required (e.g. 5001 for >50%)
+    pub voting_period: u64,       // in seconds
+    pub voting_delay: u64,        // in seconds
     pub proposal_threshold: i128, // min tokens to propose
 }
 
@@ -82,6 +82,7 @@ pub struct GovernorContract;
 
 #[contractimpl]
 impl GovernorContract {
+    #[allow(clippy::too_many_arguments)]
     pub fn init(
         env: Env,
         token: Address,
@@ -121,13 +122,18 @@ impl GovernorContract {
         proposer.require_auth();
 
         let config: GovernanceConfig = env.storage().instance().get(&DataKey::Config).unwrap();
-        
+
         let token_client = token::TokenClient::new(&env, &config.token);
         if token_client.balance(&proposer) < config.proposal_threshold {
             env.panic_with_error(Error::ProposalThresholdNotMet);
         }
 
-        let id: u32 = env.storage().instance().get::<_, u32>(&DataKey::LatestId).unwrap_or(0u32) + 1;
+        let id: u32 = env
+            .storage()
+            .instance()
+            .get::<_, u32>(&DataKey::LatestId)
+            .unwrap_or(0u32)
+            + 1;
         env.storage().instance().set(&DataKey::LatestId, &id);
 
         let start_time = env.ledger().timestamp() + config.voting_delay;
@@ -150,12 +156,12 @@ impl GovernorContract {
             queued: false,
         };
 
-        env.storage().persistent().set(&DataKey::Proposal(id), &proposal);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Proposal(id), &proposal);
 
-        env.events().publish(
-            (symbol_short!("proposed"), id),
-            proposer
-        );
+        env.events()
+            .publish((symbol_short!("proposed"), id), proposer);
 
         id
     }
@@ -194,12 +200,14 @@ impl GovernorContract {
             _ => env.panic_with_error(Error::InvalidVote),
         }
 
-        env.storage().persistent().set(&DataKey::Proposal(proposal_id), &proposal);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Proposal(proposal_id), &proposal);
         env.storage().persistent().set(&vote_key, &true);
 
         env.events().publish(
             (symbol_short!("voted"), proposal_id, voter),
-            (support, weight)
+            (support, weight),
         );
 
         weight
@@ -217,21 +225,29 @@ impl GovernorContract {
         }
 
         proposal.queued = true;
-        env.storage().persistent().set(&DataKey::Proposal(proposal_id), &proposal);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Proposal(proposal_id), &proposal);
 
         let config: GovernanceConfig = env.storage().instance().get(&DataKey::Config).unwrap();
-        
-        let salt = env.crypto().sha256(&proposal.description.clone().to_xdr(&env));
+
+        let salt = env
+            .crypto()
+            .sha256(&proposal.description.clone().to_xdr(&env));
         let salt_bytes = BytesN::from_array(&env, &salt.to_array());
 
         // Get min delay via raw invoke to avoid WASM import dependency in CI
-        let min_delay: u64 = env.invoke_contract(&config.timelock, &Symbol::new(&env, "get_min_delay"), vec![&env]);
+        let min_delay: u64 = env.invoke_contract(
+            &config.timelock,
+            &Symbol::new(&env, "get_min_delay"),
+            vec![&env],
+        );
 
         for i in 0..proposal.targets.len() {
             let target = proposal.targets.get(i).unwrap();
             let function = proposal.functions.get(i).unwrap();
             let args = proposal.args.get(i).unwrap();
-            
+
             let schedule_args: Vec<Val> = vec![
                 &env,
                 env.current_contract_address().into_val(&env),
@@ -242,13 +258,15 @@ impl GovernorContract {
                 min_delay.into_val(&env),
             ];
 
-            env.invoke_contract::<Val>(&config.timelock, &Symbol::new(&env, "schedule"), schedule_args);
+            env.invoke_contract::<Val>(
+                &config.timelock,
+                &Symbol::new(&env, "schedule"),
+                schedule_args,
+            );
         }
 
-        env.events().publish(
-            (symbol_short!("queued"), proposal_id),
-            ()
-        );
+        env.events()
+            .publish((symbol_short!("queued"), proposal_id), ());
     }
 
     pub fn execute(env: Env, proposal_id: u32) {
@@ -264,14 +282,16 @@ impl GovernorContract {
         }
 
         let config: GovernanceConfig = env.storage().instance().get(&DataKey::Config).unwrap();
-        let salt = env.crypto().sha256(&proposal.description.clone().to_xdr(&env));
+        let salt = env
+            .crypto()
+            .sha256(&proposal.description.clone().to_xdr(&env));
         let salt_bytes = BytesN::from_array(&env, &salt.to_array());
 
         for i in 0..proposal.targets.len() {
             let target = proposal.targets.get(i).unwrap();
             let function = proposal.functions.get(i).unwrap();
             let args = proposal.args.get(i).unwrap();
-            
+
             let execute_args: Vec<Val> = vec![
                 &env,
                 env.current_contract_address().into_val(&env),
@@ -281,16 +301,20 @@ impl GovernorContract {
                 salt_bytes.clone().into_val(&env),
             ];
 
-            env.invoke_contract::<Val>(&config.timelock, &Symbol::new(&env, "execute"), execute_args);
+            env.invoke_contract::<Val>(
+                &config.timelock,
+                &Symbol::new(&env, "execute"),
+                execute_args,
+            );
         }
 
         proposal.executed = true;
-        env.storage().persistent().set(&DataKey::Proposal(proposal_id), &proposal);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Proposal(proposal_id), &proposal);
 
-        env.events().publish(
-            (symbol_short!("executed"), proposal_id),
-            ()
-        );
+        env.events()
+            .publish((symbol_short!("executed"), proposal_id), ());
     }
 
     pub fn state(env: Env, proposal_id: u32) -> ProposalState {
@@ -318,8 +342,12 @@ impl GovernorContract {
         }
 
         let config: GovernanceConfig = env.storage().instance().get(&DataKey::Config).unwrap();
-        
-        let total_supply: i128 = env.invoke_contract(&config.token, &Symbol::new(&env, "total_supply"), vec![&env]);
+
+        let total_supply: i128 = env.invoke_contract(
+            &config.token,
+            &Symbol::new(&env, "total_supply"),
+            vec![&env],
+        );
         let total_votes = proposal.for_votes + proposal.against_votes + proposal.abstain_votes;
 
         if (total_votes * 10000 / total_supply) < config.quorum_bps as i128 {
@@ -327,7 +355,9 @@ impl GovernorContract {
         }
 
         let support_votes = proposal.for_votes + proposal.against_votes;
-        if support_votes == 0 || (proposal.for_votes * 10000 / support_votes) < config.threshold_bps as i128 {
+        if support_votes == 0
+            || (proposal.for_votes * 10000 / support_votes) < config.threshold_bps as i128
+        {
             return ProposalState::Defeated;
         }
 

@@ -60,10 +60,10 @@ pub mod smt {
         pub location: String,
     }
 }
-/// Storage-key collision detection (internal).
-mod storage_collision;
 /// Soroban v21 (Protocol 21) host functions and storage types.
 pub mod soroban_v21;
+/// Storage-key collision detection (internal).
+mod storage_collision;
 use std::collections::HashSet;
 use syn::spanned::Spanned;
 use syn::visit::{self, Visit};
@@ -2351,7 +2351,10 @@ mod tests {
         "#;
         let matches = analyzer.analyze_custom_rules(source, &analyzer.config.custom_rules);
         assert_eq!(matches.len(), 2);
-        let todo_match = matches.iter().find(|m| m.rule_name == "todo_comment").unwrap();
+        let todo_match = matches
+            .iter()
+            .find(|m| m.rule_name == "todo_comment")
+            .unwrap();
         assert_eq!(todo_match.severity, RuleSeverity::Info);
         let unsafe_match = matches.iter().find(|m| m.rule_name == "no_unsafe").unwrap();
         assert_eq!(unsafe_match.severity, RuleSeverity::Critical);

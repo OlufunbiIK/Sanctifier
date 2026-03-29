@@ -1,10 +1,11 @@
-#![cfg(test)]
+
 extern crate std;
 
 use crate::{MultisigWallet, MultisigWalletClient};
 use soroban_sdk::{
-    contract, contractimpl, testutils::{Address as _, Logs},
-    vec, Address, Bytes, Env, IntoVal, symbol_short, Symbol, Val,
+    contract, contractimpl, symbol_short,
+    testutils::{Address as _, Logs},
+    vec, Address, Bytes, Env, IntoVal, Symbol, Val,
 };
 
 #[contract]
@@ -69,7 +70,7 @@ fn test_multisig_flow() {
 
     // Approval 1
     client.approve(&signer1, &hash);
-    
+
     // Try to execute (should fail, threshold is 2)
     let result = client.try_execute(&target, &function, &args, &salt);
     assert!(result.is_err());
@@ -139,7 +140,7 @@ fn test_signer_management() {
 
     let hash = client.propose(&target, &function, &args, &salt);
     client.approve(&signer1, &hash);
-    
+
     let result = client.try_execute(&target, &function, &args, &salt);
     if let Err(e) = &result {
         std::println!("Error on add_signer execute: {:?}", e);
@@ -150,12 +151,22 @@ fn test_signer_management() {
     assert!(result.is_ok());
 
     // Now new_signer should be able to approve proposals
-    let target2 = Address::generate(&env);
-    let hash2 = client.propose(&target2, &symbol_short!("op2"), &vec![&env], &Bytes::from_array(&env, &[2u8; 32]));
-    
+    let mock_id = env.register_contract(None, MockContract);
+    let hash2 = client.propose(
+        &mock_id,
+        &symbol_short!("action"),
+        &vec![&env, 20u32.into_val(&env)],
+        &Bytes::from_array(&env, &[2u8; 32]),
+    );
+
     // new_signer approves
     client.approve(&new_signer, &hash2);
-    
+
     // Execution should work
-    client.execute(&target2, &symbol_short!("op2"), &vec![&env], &Bytes::from_array(&env, &[2u8; 32]));
+    client.execute(
+        &mock_id,
+        &symbol_short!("action"),
+        &vec![&env, 20u32.into_val(&env)],
+        &Bytes::from_array(&env, &[2u8; 32]),
+    );
 }

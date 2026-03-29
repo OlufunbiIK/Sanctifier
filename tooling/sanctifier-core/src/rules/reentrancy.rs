@@ -407,8 +407,7 @@ fn contains_invoke_contract(expr: &syn::Expr) -> bool {
             if method == "invoke_contract" || method == "invoke_contract_check" {
                 return true;
             }
-            contains_invoke_contract(&mc.receiver)
-                || mc.args.iter().any(contains_invoke_contract)
+            contains_invoke_contract(&mc.receiver) || mc.args.iter().any(contains_invoke_contract)
         }
         syn::Expr::Call(c) => {
             if let syn::Expr::Path(p) = &*c.func {
@@ -473,7 +472,10 @@ mod tests {
             }
         "#;
         let violations = rule().check(source);
-        assert!(!violations.is_empty(), "token transfer before invoke should be flagged");
+        assert!(
+            !violations.is_empty(),
+            "token transfer before invoke should be flagged"
+        );
     }
 
     #[test]
@@ -487,7 +489,10 @@ mod tests {
             }
         "#;
         let violations = rule().check(source);
-        assert!(!violations.is_empty(), "storage remove before invoke should be flagged");
+        assert!(
+            !violations.is_empty(),
+            "storage remove before invoke should be flagged"
+        );
     }
 
     // ── False-positive / safe cases ───────────────────────────────────────────
@@ -503,7 +508,10 @@ mod tests {
             }
         "#;
         let violations = rule().check(source);
-        assert!(violations.is_empty(), "invoke before write is safe (checks-effects-interactions)");
+        assert!(
+            violations.is_empty(),
+            "invoke before write is safe (checks-effects-interactions)"
+        );
     }
 
     #[test]
@@ -521,7 +529,10 @@ mod tests {
             }
         "#;
         let violations = rule().check(source);
-        assert!(violations.is_empty(), "guarded function must not be flagged");
+        assert!(
+            violations.is_empty(),
+            "guarded function must not be flagged"
+        );
     }
 
     #[test]
@@ -534,7 +545,10 @@ mod tests {
             }
         "#;
         let violations = rule().check(source);
-        assert!(violations.is_empty(), "read-only function must not be flagged");
+        assert!(
+            violations.is_empty(),
+            "read-only function must not be flagged"
+        );
     }
 
     #[test]
@@ -603,6 +617,9 @@ mod tests {
             }
         "#;
         let patches = rule().fix(source);
-        assert!(patches.is_empty(), "already-guarded function must not be patched");
+        assert!(
+            patches.is_empty(),
+            "already-guarded function must not be patched"
+        );
     }
 }

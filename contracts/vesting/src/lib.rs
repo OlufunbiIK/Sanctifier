@@ -1,8 +1,7 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, Address, Env, Symbol,
-    token,
+    contract, contracterror, contractimpl, contracttype, symbol_short, token, Address, Env,
 };
 
 #[cfg(test)]
@@ -49,6 +48,7 @@ impl VestingContract {
     /// @param duration The total duration of the vesting in seconds.
     /// @param amount The total amount of tokens to vest.
     /// @param revocable Whether the admin can revoke the vesting.
+    #[allow(clippy::too_many_arguments)]
     pub fn init(
         env: Env,
         admin: Address,
@@ -65,17 +65,21 @@ impl VestingContract {
         }
 
         env.storage().instance().set(&DataKey::Admin, &admin);
-        env.storage().instance().set(&DataKey::Beneficiary, &beneficiary);
+        env.storage()
+            .instance()
+            .set(&DataKey::Beneficiary, &beneficiary);
         env.storage().instance().set(&DataKey::Token, &token);
         env.storage().instance().set(&DataKey::Start, &start);
         env.storage().instance().set(&DataKey::Cliff, &cliff);
         env.storage().instance().set(&DataKey::Duration, &duration);
         env.storage().instance().set(&DataKey::TotalAmount, &amount);
         env.storage().instance().set(&DataKey::Released, &0i128);
-        env.storage().instance().set(&DataKey::Revocable, &revocable);
+        env.storage()
+            .instance()
+            .set(&DataKey::Revocable, &revocable);
         env.storage().instance().set(&DataKey::Revoked, &false);
 
-        // Transfer funds from admin to the contract. 
+        // Transfer funds from admin to the contract.
         // Admin must provide authorization for 'init'.
         admin.require_auth();
         let client = token::Client::new(&env, &token);
@@ -96,16 +100,16 @@ impl VestingContract {
         }
 
         let new_released = released + claimable;
-        env.storage().instance().set(&DataKey::Released, &new_released);
+        env.storage()
+            .instance()
+            .set(&DataKey::Released, &new_released);
 
         let token: Address = env.storage().instance().get(&DataKey::Token).unwrap();
         let client = token::Client::new(&env, &token);
         client.transfer(&env.current_contract_address(), &beneficiary, &claimable);
 
-        env.events().publish(
-            (symbol_short!("claimed"), beneficiary),
-            claimable
-        );
+        env.events()
+            .publish((symbol_short!("claimed"), beneficiary), claimable);
 
         claimable
     }
@@ -132,7 +136,9 @@ impl VestingContract {
         let unvested = total_amount - total_vested;
 
         env.storage().instance().set(&DataKey::Revoked, &true);
-        env.storage().instance().set(&DataKey::TotalAmount, &total_vested);
+        env.storage()
+            .instance()
+            .set(&DataKey::TotalAmount, &total_vested);
 
         if unvested > 0 {
             let token: Address = env.storage().instance().get(&DataKey::Token).unwrap();
@@ -140,17 +146,19 @@ impl VestingContract {
             client.transfer(&env.current_contract_address(), &admin, &unvested);
         }
 
-        env.events().publish(
-            (symbol_short!("revoked"), admin),
-            unvested
-        );
+        env.events()
+            .publish((symbol_short!("revoked"), admin), unvested);
     }
 
     /// View total vested amount (regardless of how much was already claimed).
     pub fn vested_amount(env: Env) -> i128 {
-        let revoked: bool = env.storage().instance().get(&DataKey::Revoked).unwrap_or(false);
+        let revoked: bool = env
+            .storage()
+            .instance()
+            .get(&DataKey::Revoked)
+            .unwrap_or(false);
         let total_amount: i128 = env.storage().instance().get(&DataKey::TotalAmount).unwrap();
-        
+
         if revoked {
             return total_amount;
         }
@@ -161,15 +169,15 @@ impl VestingContract {
         let now = env.ledger().timestamp();
 
         if now < start + cliff {
-            return 0;
+            0
         } else if now >= start + duration {
-            return total_amount;
+            total_amount
         } else {
             // Linear vesting calculation: amount * (now - start) / duration
             // Use i128 for all calculations to prevent precision loss.
             let elapsed = (now - start) as i128;
             let total_dur = duration as i128;
-            
+
             // vested = (amount * elapsed) / total_dur
             total_amount * elapsed / total_dur
         }
@@ -177,7 +185,11 @@ impl VestingContract {
 
     pub fn claimable_amount(env: Env) -> i128 {
         let vested = Self::vested_amount(env.clone());
-        let released: i128 = env.storage().instance().get(&DataKey::Released).unwrap_or(0);
+        let released: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::Released)
+            .unwrap_or(0);
         vested - released
     }
 

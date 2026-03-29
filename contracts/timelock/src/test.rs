@@ -1,9 +1,9 @@
-#![cfg(test)]
+
 
 use crate::{TimelockController, TimelockControllerClient};
 use soroban_sdk::{
     contract, contractimpl, testutils::Address as _, testutils::Ledger as _, Address, BytesN, Env,
-    Symbol, Val, Vec, IntoVal,
+    IntoVal, Symbol, Val, Vec,
 };
 
 #[contract]
@@ -66,11 +66,11 @@ fn test_role_management() {
 
     timelock.init(&admin, &3600, &Vec::new(&env), &Vec::new(&env));
 
-    assert_eq!(timelock.is_proposer(&proposer), false);
+    assert!(!timelock.is_proposer(&proposer));
     timelock.set_proposer(&admin, &proposer, &true);
-    assert_eq!(timelock.is_proposer(&proposer), true);
+    assert!(timelock.is_proposer(&proposer));
     timelock.set_proposer(&admin, &proposer, &false);
-    assert_eq!(timelock.is_proposer(&proposer), false);
+    assert!(!timelock.is_proposer(&proposer));
 }
 
 #[test]

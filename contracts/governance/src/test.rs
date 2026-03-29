@@ -1,9 +1,10 @@
-#![cfg(test)]
+
 
 use crate::{GovernorContract, GovernorContractClient, ProposalState};
 use soroban_sdk::{
+    symbol_short,
     testutils::{Address as _, Ledger as _},
-    Address, Env, IntoVal, symbol_short, vec, Symbol, Val, Vec,
+    vec, Address, Env, IntoVal, Symbol, Val, Vec,
 };
 
 #[soroban_sdk::contract]
@@ -17,7 +18,9 @@ impl VotingToken {
     pub fn set_balance(e: Env, addr: Address, amount: i128) {
         e.storage().instance().set(&addr, &amount);
     }
-    pub fn total_supply(_e: Env) -> i128 { 10_000 }
+    pub fn total_supply(_e: Env) -> i128 {
+        10_000
+    }
 }
 
 #[soroban_sdk::contract]
@@ -25,9 +28,28 @@ pub struct MockTimelock;
 
 #[soroban_sdk::contractimpl]
 impl MockTimelock {
-    pub fn schedule(_e: Env, _proposer: Address, _target: Address, _fn: Symbol, _args: Vec<Val>, _salt: soroban_sdk::BytesN<32>, _delay: u64) {}
-    pub fn execute(_e: Env, _proposer: Address, _target: Address, _fn: Symbol, _args: Vec<Val>, _salt: soroban_sdk::BytesN<32>) {}
-    pub fn get_min_delay(_e: Env) -> u64 { 3600 }
+    pub fn schedule(
+        _e: Env,
+        _proposer: Address,
+        _target: Address,
+        _fn: Symbol,
+        _args: Vec<Val>,
+        _salt: soroban_sdk::BytesN<32>,
+        _delay: u64,
+    ) {
+    }
+    pub fn execute(
+        _e: Env,
+        _proposer: Address,
+        _target: Address,
+        _fn: Symbol,
+        _args: Vec<Val>,
+        _salt: soroban_sdk::BytesN<32>,
+    ) {
+    }
+    pub fn get_min_delay(_e: Env) -> u64 {
+        3600
+    }
 }
 
 #[test]
@@ -38,7 +60,7 @@ fn test_governance_full_flow() {
     let proposer = Address::generate(&env);
     let voter1 = Address::generate(&env);
     let voter2 = Address::generate(&env);
-    
+
     // 1. Setup Mock Token and Timelock
     let token_id = env.register_contract(None, VotingToken);
     let token_client = VotingTokenClient::new(&env, &token_id);
@@ -55,11 +77,11 @@ fn test_governance_full_flow() {
     client.init(
         &token_id,
         &timelock_id,
-        &4000,      // 40% quorum
-        &5001,      // >50% majority
-        &86400,     // 1 day period
-        &3600,      // 1 hour delay
-        &500,       // min 500 tokens to propose
+        &4000,  // 40% quorum
+        &5001,  // >50% majority
+        &86400, // 1 day period
+        &3600,  // 1 hour delay
+        &500,   // min 500 tokens to propose
     );
 
     // 3. Propose
@@ -85,7 +107,7 @@ fn test_governance_full_flow() {
     // 5. Vote
     client.cast_vote(&voter1, &proposal_id, &1); // Support (6000 votes)
     client.cast_vote(&voter2, &proposal_id, &0); // Against (3000 votes)
-    
+
     // Total votes: 9000 (90%) -> Quorum Met. Majority: 6000/9000 (66%) -> Threshold Met.
 
     // 6. End voting period
@@ -107,7 +129,7 @@ fn test_quorum_not_met() {
 
     let proposer = Address::generate(&env);
     let voter1 = Address::generate(&env);
-    
+
     let token_id = env.register_contract(None, VotingToken);
     let token_client = VotingTokenClient::new(&env, &token_id);
     token_client.set_balance(&proposer, &1000);
@@ -120,9 +142,15 @@ fn test_quorum_not_met() {
 
     client.init(&token_id, &timelock_id, &4000, &5001, &1000, &0, &500);
 
-    let proposal_id = client.propose(&proposer, &vec![&env], &vec![&env], &vec![&env], &symbol_short!("prop"));
+    let proposal_id = client.propose(
+        &proposer,
+        &vec![&env],
+        &vec![&env],
+        &vec![&env],
+        &symbol_short!("prop"),
+    );
     client.cast_vote(&voter1, &proposal_id, &1);
-    
+
     env.ledger().set_timestamp(1001);
     assert_eq!(client.state(&proposal_id), ProposalState::Defeated);
 }

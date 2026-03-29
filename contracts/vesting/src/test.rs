@@ -1,9 +1,9 @@
-#![cfg(test)]
+
 
 use crate::{VestingContract, VestingContractClient};
 use soroban_sdk::{
-    testutils::{Address as _, Ledger as _, Events},
-    Address, Env, IntoVal, symbol_short, vec,
+    testutils::{Address as _, Ledger as _},
+    Address, Env,
 };
 
 #[test]
@@ -14,9 +14,9 @@ fn test_vesting_cliff() {
     let admin = Address::generate(&env);
     let beneficiary = Address::generate(&env);
     let token_admin = Address::generate(&env);
-    
+
     // Register a mock token
-    let token_id = env.register_stellar_asset_contract(token_admin.clone());
+    let token_id = env.register_stellar_asset_contract_v2(token_admin.clone()).address();
     let token = soroban_sdk::token::StellarAssetClient::new(&env, &token_id);
     token.mint(&admin, &1000);
 
@@ -28,7 +28,16 @@ fn test_vesting_cliff() {
     let duration = 1000;
     let total_amount = 1000i128;
 
-    client.init(&admin, &beneficiary, &token_id, &start, &cliff, &duration, &total_amount, &true);
+    client.init(
+        &admin,
+        &beneficiary,
+        &token_id,
+        &start,
+        &cliff,
+        &duration,
+        &total_amount,
+        &true,
+    );
 
     // Initial check: 0 vested during cliff
     env.ledger().set_timestamp(start + cliff - 1);
@@ -49,8 +58,8 @@ fn test_vesting_linear_and_claim() {
     let admin = Address::generate(&env);
     let beneficiary = Address::generate(&env);
     let token_admin = Address::generate(&env);
-    
-    let token_id = env.register_stellar_asset_contract(token_admin.clone());
+
+    let token_id = env.register_stellar_asset_contract_v2(token_admin.clone()).address();
     let token = soroban_sdk::token::StellarAssetClient::new(&env, &token_id);
     let token_query = soroban_sdk::token::TokenClient::new(&env, &token_id);
     token.mint(&admin, &1000);
@@ -58,12 +67,21 @@ fn test_vesting_linear_and_claim() {
     let contract_id = env.register_contract(None, VestingContract);
     let client = VestingContractClient::new(&env, &contract_id);
 
-    client.init(&admin, &beneficiary, &token_id, &0, &0, &1000, &1000, &false);
+    client.init(
+        &admin,
+        &beneficiary,
+        &token_id,
+        &0,
+        &0,
+        &1000,
+        &1000,
+        &false,
+    );
 
     // 25% vesting
     env.ledger().set_timestamp(250);
     assert_eq!(client.vested_amount(), 250);
-    
+
     // Beneficiary claims
     client.claim();
     assert_eq!(token_query.balance(&beneficiary), 250);
@@ -86,8 +104,8 @@ fn test_vesting_revoke() {
     let admin = Address::generate(&env);
     let beneficiary = Address::generate(&env);
     let token_admin = Address::generate(&env);
-    
-    let token_id = env.register_stellar_asset_contract(token_admin.clone());
+
+    let token_id = env.register_stellar_asset_contract_v2(token_admin.clone()).address();
     let token = soroban_sdk::token::StellarAssetClient::new(&env, &token_id);
     let token_query = soroban_sdk::token::TokenClient::new(&env, &token_id);
     token.mint(&admin, &1000);
@@ -103,14 +121,14 @@ fn test_vesting_revoke() {
 
     // Admin revokes
     client.revoke();
-    
+
     // Admin should get 600 tokens back
     assert_eq!(token_query.balance(&admin), 600);
-    
+
     // Beneficiary should still be able to claim the 400 tokens that were already vested
     env.ledger().set_timestamp(1000); // Try jumping into the future
     assert_eq!(client.vested_amount(), 400); // Should be capped at revocation timestamp
-    
+
     client.claim();
     assert_eq!(token_query.balance(&beneficiary), 400);
 }
@@ -124,15 +142,24 @@ fn test_claim_nothing_fails() {
     let admin = Address::generate(&env);
     let beneficiary = Address::generate(&env);
     let token_admin = Address::generate(&env);
-    let token_id = env.register_stellar_asset_contract(token_admin.clone());
+    let token_id = env.register_stellar_asset_contract_v2(token_admin.clone()).address();
     let token = soroban_sdk::token::StellarAssetClient::new(&env, &token_id);
     token.mint(&admin, &1000);
 
     let contract_id = env.register_contract(None, VestingContract);
     let client = VestingContractClient::new(&env, &contract_id);
 
-    client.init(&admin, &beneficiary, &token_id, &100, &0, &1000, &1000, &false);
-    
+    client.init(
+        &admin,
+        &beneficiary,
+        &token_id,
+        &100,
+        &0,
+        &1000,
+        &1000,
+        &false,
+    );
+
     env.ledger().set_timestamp(50); // Before start
     client.claim();
 }

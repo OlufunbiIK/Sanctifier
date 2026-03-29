@@ -1,8 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, panic_with_error, Address, BytesN, Env,
-    Symbol, Val, Vec, xdr::ToXdr,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, xdr::ToXdr, Address,
+    BytesN, Env, Symbol, Val, Vec,
 };
 
 #[cfg(test)]
@@ -51,10 +51,14 @@ impl TimelockController {
         env.storage().instance().set(&DataKey::MinDelay, &min_delay);
 
         for proposer in proposers.iter() {
-            env.storage().instance().set(&DataKey::Proposer(proposer), &true);
+            env.storage()
+                .instance()
+                .set(&DataKey::Proposer(proposer), &true);
         }
         for executor in executors.iter() {
-            env.storage().instance().set(&DataKey::Executor(executor), &true);
+            env.storage()
+                .instance()
+                .set(&DataKey::Executor(executor), &true);
         }
     }
 
@@ -91,19 +95,25 @@ impl TimelockController {
     pub fn set_proposer(env: Env, admin: Address, address: Address, active: bool) {
         admin.require_auth();
         check_admin(&env, &admin);
-        env.storage().instance().set(&DataKey::Proposer(address), &active);
+        env.storage()
+            .instance()
+            .set(&DataKey::Proposer(address), &active);
     }
 
     pub fn set_executor(env: Env, admin: Address, address: Address, active: bool) {
         admin.require_auth();
         check_admin(&env, &admin);
-        env.storage().instance().set(&DataKey::Executor(address), &active);
+        env.storage()
+            .instance()
+            .set(&DataKey::Executor(address), &active);
     }
 
     pub fn set_canceller(env: Env, admin: Address, address: Address, active: bool) {
         admin.require_auth();
         check_admin(&env, &admin);
-        env.storage().instance().set(&DataKey::Canceller(address), &active);
+        env.storage()
+            .instance()
+            .set(&DataKey::Canceller(address), &active);
     }
 
     pub fn update_delay(env: Env, admin: Address, new_delay: u64) {
@@ -133,12 +143,18 @@ impl TimelockController {
         }
 
         let hash = compute_hash(&env, &target, &fn_name, &args, &salt);
-        if env.storage().instance().has(&DataKey::Proposal(hash.clone())) {
+        if env
+            .storage()
+            .instance()
+            .has(&DataKey::Proposal(hash.clone()))
+        {
             panic_with_error!(&env, TimelockError::AlreadyInitialized);
         }
 
         let ready_timestamp = env.ledger().timestamp() + delay;
-        env.storage().instance().set(&DataKey::Proposal(hash.clone()), &ready_timestamp);
+        env.storage()
+            .instance()
+            .set(&DataKey::Proposal(hash.clone()), &ready_timestamp);
 
         env.events().publish(
             (Symbol::new(&env, "scheduled"), hash.clone()),
@@ -173,7 +189,9 @@ impl TimelockController {
         }
 
         // Mark as executed (remove from storage)
-        env.storage().instance().remove(&DataKey::Proposal(hash.clone()));
+        env.storage()
+            .instance()
+            .remove(&DataKey::Proposal(hash.clone()));
 
         env.events().publish(
             (Symbol::new(&env, "executed"), hash),
@@ -192,13 +210,20 @@ impl TimelockController {
             panic_with_error!(&env, TimelockError::Unauthorized);
         }
 
-        if !env.storage().instance().has(&DataKey::Proposal(hash.clone())) {
+        if !env
+            .storage()
+            .instance()
+            .has(&DataKey::Proposal(hash.clone()))
+        {
             panic_with_error!(&env, TimelockError::ProposalNotFound);
         }
 
-        env.storage().instance().remove(&DataKey::Proposal(hash.clone()));
+        env.storage()
+            .instance()
+            .remove(&DataKey::Proposal(hash.clone()));
 
-        env.events().publish((Symbol::new(&env, "canceled"), hash), ());
+        env.events()
+            .publish((Symbol::new(&env, "canceled"), hash), ());
     }
 }
 
