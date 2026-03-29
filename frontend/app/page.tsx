@@ -41,7 +41,7 @@ export default function Home() {
             >
               <span className="relative z-10 flex items-center justify-center gap-2">
                 Start Security Scan
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-1"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-1"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
               </span>
             </Link>
             <Link
@@ -77,7 +77,7 @@ export default function Home() {
 
           <div className="group p-8 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-sm transition-all hover:border-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/5">
             <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 mb-6 group-hover:scale-110 transition-transform">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="m17 7-5-5-5 5"/><path d="M17 17l-5 5-5-5"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20" /><path d="m17 7-5-5-5 5" /><path d="M17 17l-5 5-5-5" /></svg>
             </div>
             <h3 className="text-xl font-bold mb-3 text-zinc-900 dark:text-zinc-50">Protocol Compliance</h3>
             <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
@@ -99,23 +99,6 @@ export default function Home() {
         </div>
       </main>
 
-      {/* CSS-only animations */}
-      <style jsx global>{`
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes slide-in-from-bottom {
-          from { transform: translateY(20px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-        .animate-in {
-          animation: fade-in 1s ease-out forwards;
-        }
-        .slide-in-from-bottom-3 {
-          animation: slide-in-from-bottom 0.8s ease-out forwards;
-        }
-      `}</style>
     </div>
   );
 }

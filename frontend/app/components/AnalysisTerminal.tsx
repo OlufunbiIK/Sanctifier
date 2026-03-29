@@ -96,34 +96,15 @@ export const AnalysisTerminal: React.FC<AnalysisTerminalProps> = ({ logs, isAnal
               setAutoScroll(true);
             }
           }}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-            autoScroll
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${autoScroll
               ? "bg-emerald-500/10 text-emerald-500"
               : "bg-white/10 text-zinc-400 hover:bg-white/20"
-          } backdrop-blur-md border border-white/5`}
+            } backdrop-blur-md border border-white/5`}
         >
           {autoScroll ? "Live Tracking ON" : "Jump to Bottom"}
         </button>
       </div>
 
-      <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(39, 39, 42, 0.5);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(63, 63, 70, 0.5);
-        }
-        .truncate-line {
-           /* Could add more styling here if needed */
-        }
-      `}</style>
     </div>
   );
 };

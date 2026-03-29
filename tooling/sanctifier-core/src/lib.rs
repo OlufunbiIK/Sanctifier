@@ -62,6 +62,8 @@ pub mod smt {
 }
 /// Storage-key collision detection (internal).
 mod storage_collision;
+/// Soroban v21 (Protocol 21) host functions and storage types.
+pub mod soroban_v21;
 use std::collections::HashSet;
 use syn::spanned::Spanned;
 use syn::visit::{self, Visit};
@@ -70,9 +72,11 @@ use syn::{parse_str, Fields, File, Item, Meta, Type};
 pub use complexity::{analyze_complexity, analyze_complexity_from_source, render_text_report};
 pub use rules::{Rule, RuleRegistry, RuleViolation, Severity};
 pub use sep41::{Sep41Issue, Sep41IssueKind, Sep41VerificationReport};
+pub use smt::SmtInvariantIssue;
 
 // Redundant imports removed
 use crate::rules::arithmetic_overflow::ArithVisitor;
+use crate::rules::truncation_bounds::TruncationBoundsVisitor;
 
 const DEFAULT_STRICT_THRESHOLD: f64 = 0.9;
 fn with_panic_guard<F, R>(f: F) -> R
@@ -311,6 +315,23 @@ pub struct ArithmeticIssue {
     /// The operator: "+", "-", "*", "+=", "-=", "*=".
     pub operation: String,
     /// Human-readable suggestion pointing to the safe alternative.
+    pub suggestion: String,
+    /// "function_name:line" context string.
+    pub location: String,
+}
+
+// ── TruncationBoundsIssue ────────────────────────────────────────────────────
+
+/// Represents an integer truncation cast or unchecked array/slice indexing.
+#[derive(Debug, Serialize, Clone)]
+pub struct TruncationBoundsIssue {
+    /// Contract function in which the issue was found.
+    pub function_name: String,
+    /// The kind of issue: `"truncation"` or `"unchecked_index"`.
+    pub kind: String,
+    /// The problematic expression (e.g. `as u32`, `buf[i]`).
+    pub expression: String,
+    /// Human-readable suggestion for a safe alternative.
     pub suggestion: String,
     /// "function_name:line" context string.
     pub location: String,
@@ -698,7 +719,9 @@ impl Analyzer {
                             let mut summary = FunctionSecuritySummary::default();
                             self.check_fn_body(&f.block, &mut summary);
                             if summary.has_sensitive_action() && !summary.has_auth {
-                                gaps.push(AuthGapIssue { function_name: fn_name });
+                                gaps.push(AuthGapIssue {
+                                    function_name: fn_name,
+                                });
                             }
                         }
                     }
@@ -1155,6 +1178,31 @@ impl Analyzer {
         visitor.issues
     }
 
+    // ── Truncation / bounds risk detection ───────────────────────────────────
+
+    /// Detects narrowing integer casts (`as u32`, `as u16`, `as u8`, etc.) and
+    /// unchecked array/slice indexing that could cause truncation or
+    /// out-of-bounds panics.
+    pub fn scan_truncation_bounds(&self, source: &str) -> Vec<TruncationBoundsIssue> {
+        with_panic_guard(|| self.scan_truncation_bounds_impl(source))
+    }
+
+    fn scan_truncation_bounds_impl(&self, source: &str) -> Vec<TruncationBoundsIssue> {
+        let file = match parse_str::<File>(source) {
+            Ok(f) => f,
+            Err(_) => return vec![],
+        };
+
+        let mut visitor = TruncationBoundsVisitor {
+            issues: Vec::new(),
+            current_fn: None,
+            seen: HashSet::new(),
+            test_mod_depth: 0,
+        };
+        visitor.visit_file(&file);
+        visitor.issues
+    }
+
     /// Run regex-based custom rules from config. Returns matches with line and snippet.
     pub fn analyze_custom_rules(&self, source: &str, rules: &[CustomRule]) -> Vec<CustomRuleMatch> {
         use regex::Regex;
@@ -1172,7 +1220,7 @@ impl Analyzer {
                         rule_name: rule.name.clone(),
                         line: line_num,
                         snippet: line.trim().to_string(),
-                        severity: rule.severity.clone(),
+                        severity: rule.severity,
                     });
                 }
             }
@@ -1941,7 +1989,7 @@ mod tests {
         "#;
         let gaps = analyzer.scan_auth_gaps(source);
         assert_eq!(gaps.len(), 1);
-        assert_eq!(gaps[0], "set_data");
+        assert_eq!(gaps[0].function_name, "set_data");
     }
 
     #[test]
@@ -1971,7 +2019,8 @@ mod tests {
         "#;
 
         let gaps = analyzer.scan_auth_gaps(source);
-        assert_eq!(gaps, vec!["transfer".to_string()]);
+        assert_eq!(gaps.len(), 1);
+        assert_eq!(gaps[0].function_name, "transfer");
     }
 
     #[test]
@@ -1994,7 +2043,8 @@ mod tests {
         "#;
 
         let gaps = analyzer.scan_auth_gaps(source);
-        assert_eq!(gaps, vec!["forward".to_string()]);
+        assert_eq!(gaps.len(), 1);
+        assert_eq!(gaps[0].function_name, "forward");
     }
 
     #[test]
@@ -2021,7 +2071,8 @@ mod tests {
         "#;
 
         let gaps = analyzer.scan_auth_gaps(source);
-        assert_eq!(gaps, vec!["reset_admin".to_string()]);
+        assert_eq!(gaps.len(), 1);
+        assert_eq!(gaps[0].function_name, "reset_admin");
     }
 
     #[test]
@@ -2043,7 +2094,8 @@ mod tests {
         "#;
 
         let gaps = analyzer.scan_auth_gaps(source);
-        assert_eq!(gaps, vec!["forward_transfer".to_string()]);
+        assert_eq!(gaps.len(), 1);
+        assert_eq!(gaps[0].function_name, "forward_transfer");
     }
 
     #[test]
@@ -2280,7 +2332,7 @@ mod tests {
                 CustomRule {
                     name: "no_unsafe".to_string(),
                     pattern: "unsafe".to_string(),
-                    severity: Rulecrate::finding_codes::FindingSeverity::Critical,
+                    severity: RuleSeverity::Critical,
                 },
                 CustomRule {
                     name: "todo_comment".to_string(),
@@ -2294,22 +2346,15 @@ mod tests {
         let source = r#"
             pub fn my_fn() {
                 // TODO: implement this
-                unsafe {
-                    let x = 1;
-                }
+                unsafe { let x = 1; }
             }
         "#;
         let matches = analyzer.analyze_custom_rules(source, &analyzer.config.custom_rules);
         assert_eq!(matches.len(), 2);
-
-        let todo_match = matches
-            .iter()
-            .find(|m| m.rule_name == "todo_comment")
-            .unwrap();
+        let todo_match = matches.iter().find(|m| m.rule_name == "todo_comment").unwrap();
         assert_eq!(todo_match.severity, RuleSeverity::Info);
-
         let unsafe_match = matches.iter().find(|m| m.rule_name == "no_unsafe").unwrap();
-        assert_eq!(unsafe_match.severity, Rulecrate::finding_codes::FindingSeverity::Critical);
+        assert_eq!(unsafe_match.severity, RuleSeverity::Critical);
     }
 
     #[test]
@@ -3146,14 +3191,15 @@ impl MyContract {
     }
 }
 
-
-
+#[cfg(feature = "smt")]
 impl SmtInvariantIssue {
+    /// Returns the severity level of this SMT invariant violation.
     pub fn severity(&self) -> crate::finding_codes::FindingSeverity {
         crate::finding_codes::FindingSeverity::Critical
     }
 }
 impl SizeWarning {
+    /// Returns the severity level of this ledger size warning.
     pub fn severity(&self) -> crate::finding_codes::FindingSeverity {
         if self.level == SizeWarningLevel::ExceedsLimit {
             crate::finding_codes::FindingSeverity::Critical
@@ -3163,8 +3209,10 @@ impl SizeWarning {
     }
 }
 impl PanicIssue {
+    /// Returns the severity level of this panic issue.
     pub fn severity(&self) -> crate::finding_codes::FindingSeverity {
-        if self.issue_type == "panic!" || self.issue_type == "unwrap" || self.issue_type == "expect" {
+        if self.issue_type == "panic!" || self.issue_type == "unwrap" || self.issue_type == "expect"
+        {
             crate::finding_codes::FindingSeverity::Critical
         } else {
             crate::finding_codes::FindingSeverity::High
@@ -3172,43 +3220,57 @@ impl PanicIssue {
     }
 }
 impl UnsafePattern {
+    /// Returns the severity level of this unsafe pattern.
     pub fn severity(&self) -> crate::finding_codes::FindingSeverity {
         crate::finding_codes::FindingSeverity::High
     }
 }
 impl UpgradeFinding {
+    /// Returns the severity level of this upgrade finding.
     pub fn severity(&self) -> crate::finding_codes::FindingSeverity {
         crate::finding_codes::FindingSeverity::High
     }
 }
 impl ArithmeticIssue {
+    /// Returns the severity level of this arithmetic issue.
+    pub fn severity(&self) -> crate::finding_codes::FindingSeverity {
+        crate::finding_codes::FindingSeverity::High
+    }
+}
+impl TruncationBoundsIssue {
+    /// Returns the severity level of this truncation/bounds issue.
     pub fn severity(&self) -> crate::finding_codes::FindingSeverity {
         crate::finding_codes::FindingSeverity::High
     }
 }
 impl StorageCollisionIssue {
+    /// Returns the severity level of this storage collision issue.
     pub fn severity(&self) -> crate::finding_codes::FindingSeverity {
         crate::finding_codes::FindingSeverity::High
     }
 }
 impl EventIssue {
+    /// Returns the severity level of this event issue.
     pub fn severity(&self) -> crate::finding_codes::FindingSeverity {
         crate::finding_codes::FindingSeverity::High
     }
 }
 impl UnhandledResultIssue {
+    /// Returns the severity level of this unhandled result issue.
     pub fn severity(&self) -> crate::finding_codes::FindingSeverity {
         crate::finding_codes::FindingSeverity::High
     }
 }
 
+/// An authentication gap issue detected in a contract function.
 #[derive(Debug, serde::Serialize, Clone, PartialEq)]
 pub struct AuthGapIssue {
+    /// The name of the function missing authentication.
     pub function_name: String,
 }
 impl AuthGapIssue {
+    /// Returns the severity level of this authentication gap.
     pub fn severity(&self) -> crate::finding_codes::FindingSeverity {
         crate::finding_codes::FindingSeverity::Critical
     }
 }
-

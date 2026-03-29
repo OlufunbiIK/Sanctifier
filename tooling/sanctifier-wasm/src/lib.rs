@@ -9,8 +9,8 @@
 //! * [`analyze_with_config`] — run with a JSON-serialised [`SanctifyConfig`].
 
 use sanctifier_core::{
-    finding_codes, Analyzer, ArithmeticIssue, EventIssue, PanicIssue, SanctifyConfig, SizeWarning,
-    StorageCollisionIssue, UnhandledResultIssue, UnsafePattern,
+    finding_codes, Analyzer, ArithmeticIssue, AuthGapIssue, EventIssue, PanicIssue, SanctifyConfig,
+    SizeWarning, StorageCollisionIssue, UnhandledResultIssue, UnsafePattern,
 };
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
@@ -65,12 +65,12 @@ pub struct Summary {
 
 // ── Helpers to convert core types into Finding ───────────────────────────────
 
-fn auth_gap_finding(fn_name: &str) -> Finding {
+fn auth_gap_finding(issue: &AuthGapIssue) -> Finding {
     Finding {
         code: finding_codes::AUTH_GAP,
         category: "authentication",
-        message: format!("Missing authentication guard in `{fn_name}`"),
-        location: Some(fn_name.to_string()),
+        message: format!("Missing authentication guard in `{}`", issue.function_name),
+        location: Some(issue.function_name.clone()),
     }
 }
 

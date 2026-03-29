@@ -19,7 +19,8 @@ fn auth_gap_fixture_emits_exactly_one_auth_gap() {
 
     let findings = analyzer.scan_auth_gaps(&source);
 
-    assert_eq!(findings, vec!["store_user".to_string()]);
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].function_name, "store_user");
 }
 
 #[test]

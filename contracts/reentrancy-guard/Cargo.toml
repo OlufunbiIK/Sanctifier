@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 description = "Standardized, formally verified reentrancy guard for Soroban contracts"
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
+
 [lib]
 crate-type = ["rlib"]
 

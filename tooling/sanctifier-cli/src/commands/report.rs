@@ -161,7 +161,7 @@ pub fn exec(args: ReportArgs) -> anyhow::Result<()> {
 // ── Merged analysis data ──────────────────────────────────────────────────────
 
 struct ReportData {
-    auth_gaps: Vec<String>,
+    auth_gaps: Vec<sanctifier_core::AuthGapIssue>,
     panic_issues: Vec<sanctifier_core::PanicIssue>,
     arithmetic_issues: Vec<sanctifier_core::ArithmeticIssue>,
     size_warnings: Vec<sanctifier_core::SizeWarning>,
@@ -351,7 +351,7 @@ fn render_markdown(data: &ReportData, path: &Path, vuln_db_version: &str) -> Str
             "> Missing `require_auth()` in state-mutating or externally-callable functions.\n\n",
         );
         for g in &data.auth_gaps {
-            md.push_str(&format!("- `{}`\n", g));
+            md.push_str(&format!("- `{}`\n", g.function_name));
         }
         md.push('\n');
     }

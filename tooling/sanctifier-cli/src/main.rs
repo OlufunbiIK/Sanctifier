@@ -23,10 +23,14 @@ struct Cli {
 pub enum Commands {
     /// Analyze a Soroban contract for vulnerabilities
     Analyze(commands::analyze::AnalyzeArgs),
+    /// Compare current scan results against a baseline to find only NEW vulnerabilities
+    Diff(commands::diff::DiffArgs),
     /// Generate a dynamic Sanctifier status badge
     Badge(commands::badge::BadgeArgs),
     /// Generate a Markdown or HTML security report
     Report(commands::report::ReportArgs),
+    /// Detect potential storage key collisions in Soroban contracts
+    Storage(commands::storage::StorageArgs),
     /// Initialize Sanctifier in a new project
     Init(commands::init::InitArgs),
     /// Show per-contract complexity metrics (cyclomatic complexity, nesting, LOC)
@@ -43,6 +47,8 @@ pub enum Commands {
     },
     /// Check for and download the latest Sanctifier binary
     Update,
+    /// Detect reentrancy vulnerabilities (state mutation before external call)
+    Reentrancy(commands::reentrancy::ReentrancyArgs),
 }
 
 fn main() {
@@ -56,12 +62,17 @@ fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let log_output = match &cli.command {
         Commands::Analyze(args) if args.format == "json" => logging::LogOutput::Json,
+        Commands::Diff(args) if args.format == "json" => logging::LogOutput::Json,
+        Commands::Storage(args) if args.format == commands::storage::OutputFormat::Json => {
+            logging::LogOutput::Json
+        }
         _ => logging::LogOutput::Text,
     };
     logging::init(log_output)?;
 
     match cli.command {
         Commands::Analyze(args) => commands::analyze::exec(args)?,
+        Commands::Diff(args) => commands::diff::exec(args)?,
         Commands::Badge(args) => {
             commands::badge::exec(args)?;
         }
@@ -70,6 +81,9 @@ fn run() -> anyhow::Result<()> {
         }
         Commands::Report(args) => {
             commands::report::exec(args)?;
+        }
+        Commands::Storage(args) => {
+            commands::storage::exec(args)?;
         }
         Commands::Init(args) => {
             let path = Some(args.path.clone());
@@ -127,6 +141,9 @@ fn run() -> anyhow::Result<()> {
         }
         Commands::Update => {
             commands::update::exec()?;
+        }
+        Commands::Reentrancy(args) => {
+            commands::reentrancy::exec(args)?;
         }
     }
 

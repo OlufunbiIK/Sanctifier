@@ -113,16 +113,15 @@ export default function ScanPage() {
         <section className="flex flex-col items-center gap-8">
           <div className="w-full max-w-2xl group relative">
             <div className={`absolute -inset-1 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000 ${isAnalyzing ? "animate-pulse" : ""}`} />
-            <label className={`relative block overflow-hidden rounded-2xl border-2 border-dashed transition-all cursor-pointer bg-white dark:bg-zinc-900 shadow-xl ${
-              selectedFile 
-                ? "border-emerald-500/50 bg-emerald-500/5" 
-                : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
-            }`}>
-              <input 
-                type="file" 
-                accept=".rs" 
+            <label className={`relative block overflow-hidden rounded-2xl border-2 border-dashed transition-all cursor-pointer bg-white dark:bg-zinc-900 shadow-xl ${selectedFile
+              ? "border-emerald-500/50 bg-emerald-500/5"
+              : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
+              }`}>
+              <input
+                type="file"
+                accept=".rs"
                 onChange={handleFileChange}
-                className="hidden" 
+                className="hidden"
                 disabled={isAnalyzing}
               />
               <div className="px-8 py-12 flex flex-col items-center text-center space-y-4">
@@ -145,11 +144,10 @@ export default function ScanPage() {
             <button
               onClick={runAnalysis}
               disabled={!selectedFile || isAnalyzing}
-              className={`px-10 py-4 rounded-2xl font-bold transition-all shadow-2xl active:scale-95 flex items-center gap-3 ${
-                !selectedFile || isAnalyzing
-                  ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed"
-                  : "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 hover:scale-105 shadow-emerald-500/20"
-              }`}
+              className={`px-10 py-4 rounded-2xl font-bold transition-all shadow-2xl active:scale-95 flex items-center gap-3 ${!selectedFile || isAnalyzing
+                ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed"
+                : "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 hover:scale-105 shadow-emerald-500/20"
+                }`}
             >
               {isAnalyzing ? (
                 <>
@@ -180,7 +178,7 @@ export default function ScanPage() {
         {/* Error State */}
         {error && (
           <section className="p-6 rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 flex flex-col items-center gap-4 text-center animate-in zoom-in-95 duration-300">
-            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
             <div className="space-y-1">
               <h3 className="font-bold text-lg">Analysis Failed</h3>
               <p className="max-w-md">{error}</p>
@@ -203,16 +201,16 @@ export default function ScanPage() {
                   <div className="space-y-4">
                     <h3 className="text-2xl font-bold">Analysis Summary</h3>
                     <p className="text-zinc-500">
-                      The automated engine has completed its sweep of your contract. 
+                      The automated engine has completed its sweep of your contract.
                       You can view the detailed findings below or explore the full reporting dashboard.
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row items-center gap-4 mt-8">
                     <Link href="/dashboard" className="inline-flex items-center gap-2 text-emerald-500 font-bold hover:gap-3 transition-all">
                       Open Full Dashboard
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
                     </Link>
-                    <button 
+                    <button
                       onClick={() => {
                         const reportId = Math.random().toString(36).substring(7);
                         const shareUrl = `${window.location.origin}/share/${reportId}`;
@@ -221,7 +219,7 @@ export default function ScanPage() {
                       }}
                       className="inline-flex items-center gap-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 font-medium transition-colors"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" /></svg>
                       Share Report
                     </button>
                   </div>
@@ -250,12 +248,6 @@ export default function ScanPage() {
         )}
       </main>
 
-      <style jsx global>{`
-        @keyframes zoom-in-95 {
-          from { transform: scale(0.95); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
-        }
-      `}</style>
     </div>
   );
 }

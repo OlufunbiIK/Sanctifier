@@ -4,6 +4,7 @@
 [![Codecov](https://codecov.io/gh/Jayy4rl/Sanctifier/graph/badge.svg)](https://codecov.io/gh/Jayy4rl/Sanctifier)
 [![crates.io](https://img.shields.io/crates/v/sanctifier-cli.svg)](https://crates.io/crates/sanctifier-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/HyperSafeD/Sanctifier)
 
 <p align="center">
   <img src="branding/logo.png" width="300" alt="Sanctifier Logo">
@@ -17,7 +18,7 @@ and optionally proves invariants with Z3.
 
 ---
 
-## Table of Contents
+## Table of Content
 
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
@@ -65,6 +66,23 @@ cargo install --path .
 ---
 
 ## 🚀 Quick Start
+
+### Developer commands
+
+Common workflows are wrapped in a root-level `Makefile`:
+
+```bash
+make build    # cargo build --workspace
+make test     # cargo test --workspace
+make lint     # cargo fmt --all --check && cargo clippy --workspace -- -D warnings
+make fmt      # cargo fmt --all
+make audit    # cargo audit && cargo deny check
+make release  # cargo build --workspace --release
+make docs     # cargo doc --workspace --no-deps --open
+make clean    # cargo clean
+```
+
+### Analyse a contract
 
 Analyse a Soroban contract in a single command:
 
@@ -114,20 +132,20 @@ sanctifier analyze ./contracts/my-token
 Every finding is tagged with a stable code so you can filter, suppress, or
 reference it in CI.
 
-| Code | Category | Description |
-|------|----------|-------------|
-| `S001` | authentication | Missing `require_auth` in a state-changing function |
-| `S002` | panic_handling | `panic!` / `unwrap` / `expect` usage that may abort execution |
-| `S003` | arithmetic | Unchecked arithmetic with overflow/underflow risk |
-| `S004` | storage_limits | Ledger entry size exceeds or approaches the configured threshold |
-| `S005` | storage_keys | Potential storage-key collision across data paths |
-| `S006` | unsafe_patterns | Potentially unsafe language or runtime pattern detected |
-| `S007` | custom_rule | User-defined rule matched contract source |
-| `S008` | events | Inconsistent topic counts or sub-optimal gas patterns in events |
-| `S009` | logic | A `Result` return value is not consumed or handled |
-| `S010` | upgrades | Security risk in contract upgrade or admin mechanisms |
-| `S011` | formal_verification | Z3 proved a mathematical violation of an invariant |
-| `S012` | token_interface | SEP-41 token interface compatibility or authorization deviation |
+| Code   | Category            | Description                                                      |
+| ------ | ------------------- | ---------------------------------------------------------------- |
+| `S001` | authentication      | Missing `require_auth` in a state-changing function              |
+| `S002` | panic_handling      | `panic!` / `unwrap` / `expect` usage that may abort execution    |
+| `S003` | arithmetic          | Unchecked arithmetic with overflow/underflow risk                |
+| `S004` | storage_limits      | Ledger entry size exceeds or approaches the configured threshold |
+| `S005` | storage_keys        | Potential storage-key collision across data paths                |
+| `S006` | unsafe_patterns     | Potentially unsafe language or runtime pattern detected          |
+| `S007` | custom_rule         | User-defined rule matched contract source                        |
+| `S008` | events              | Inconsistent topic counts or sub-optimal gas patterns in events  |
+| `S009` | logic               | A `Result` return value is not consumed or handled               |
+| `S010` | upgrades            | Security risk in contract upgrade or admin mechanisms            |
+| `S011` | formal_verification | Z3 proved a mathematical violation of an invariant               |
+| `S012` | token_interface     | SEP-41 token interface compatibility or authorization deviation  |
 
 In addition, the community vulnerability database emits `SOL-2024-*` codes
 when a known vulnerability pattern is matched.
@@ -145,13 +163,13 @@ Analyse a Soroban contract for vulnerabilities.
 sanctifier analyze [OPTIONS] [PATH]
 ```
 
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `[PATH]` | — | `.` | Contract directory or `Cargo.toml` |
-| `--format <FORMAT>` | `-f` | `text` | Output format: `text` or `json` |
-| `--limit <BYTES>` | `-l` | `64000` | Ledger entry size limit in bytes |
-| `--vuln-db <PATH>` | — | built-in | Custom vulnerability database JSON |
-| `--webhook-url <URL>` | — | — | Webhook endpoint(s) for scan notifications (repeatable) |
+| Flag                  | Short | Default  | Description                                             |
+| --------------------- | ----- | -------- | ------------------------------------------------------- |
+| `[PATH]`              | —     | `.`      | Contract directory or `Cargo.toml`                      |
+| `--format <FORMAT>`   | `-f`  | `text`   | Output format: `text` or `json`                         |
+| `--limit <BYTES>`     | `-l`  | `64000`  | Ledger entry size limit in bytes                        |
+| `--vuln-db <PATH>`    | —     | built-in | Custom vulnerability database JSON                      |
+| `--webhook-url <URL>` | —     | —        | Webhook endpoint(s) for scan notifications (repeatable) |
 
 ```bash
 # JSON output for CI
@@ -180,23 +198,23 @@ sanctifier analyze ./contracts/token-with-bugs \
 
 Provider-specific payloads:
 
-| Provider | Payload shape |
-|----------|---------------|
-| Discord | `{ "content": "Sanctifier scan completed ..." }` |
-| Slack | `{ "text": "Sanctifier scan completed ...", "attachments": [{ "color": "...", "fields": [...] }] }` |
-| Teams | `{ "text": "Sanctifier scan completed ..." }` |
-| Custom webhook | Raw JSON payload: `event`, `project_path`, `timestamp_unix`, `summary` |
+| Provider       | Payload shape                                                                                       |
+| -------------- | --------------------------------------------------------------------------------------------------- |
+| Discord        | `{ "content": "Sanctifier scan completed ..." }`                                                    |
+| Slack          | `{ "text": "Sanctifier scan completed ...", "attachments": [{ "color": "...", "fields": [...] }] }` |
+| Teams          | `{ "text": "Sanctifier scan completed ..." }`                                                       |
+| Custom webhook | Raw JSON payload: `event`, `project_path`, `timestamp_unix`, `summary`                              |
 
 The shared payload data includes:
 
-| Field | Description |
-|-------|-------------|
-| `event` | Always `scan.completed` |
-| `project_path` | Analysed path passed to `sanctifier analyze` |
-| `timestamp_unix` | Completion timestamp as UNIX seconds |
-| `summary.total_findings` | Total number of findings emitted |
-| `summary.has_critical` | Whether any critical findings were detected |
-| `summary.has_high` | Whether any high-severity findings were detected |
+| Field                    | Description                                      |
+| ------------------------ | ------------------------------------------------ |
+| `event`                  | Always `scan.completed`                          |
+| `project_path`           | Analysed path passed to `sanctifier analyze`     |
+| `timestamp_unix`         | Completion timestamp as UNIX seconds             |
+| `summary.total_findings` | Total number of findings emitted                 |
+| `summary.has_critical`   | Whether any critical findings were detected      |
+| `summary.has_high`       | Whether any high-severity findings were detected |
 
 Webhook delivery failures are non-fatal: Sanctifier logs a warning to stderr and
 still returns the analysis result.
@@ -211,9 +229,9 @@ Generate a `.sanctify.toml` configuration file in the current directory.
 sanctifier init [OPTIONS]
 ```
 
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--force` | `-f` | `false` | Overwrite an existing config file |
+| Flag      | Short | Default | Description                       |
+| --------- | ----- | ------- | --------------------------------- |
+| `--force` | `-f`  | `false` | Overwrite an existing config file |
 
 ---
 
@@ -225,12 +243,12 @@ Create an SVG badge and optional Markdown snippet from a JSON scan report.
 sanctifier badge [OPTIONS]
 ```
 
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--report <PATH>` | `-r` | `sanctifier-report.json` | Path to a Sanctifier JSON report |
-| `--svg-output <PATH>` | — | `sanctifier-security.svg` | Output SVG file |
-| `--markdown-output <PATH>` | — | — | Output Markdown snippet file |
-| `--badge-url <URL>` | — | local SVG path | Public URL for the SVG |
+| Flag                       | Short | Default                   | Description                      |
+| -------------------------- | ----- | ------------------------- | -------------------------------- |
+| `--report <PATH>`          | `-r`  | `sanctifier-report.json`  | Path to a Sanctifier JSON report |
+| `--svg-output <PATH>`      | —     | `sanctifier-security.svg` | Output SVG file                  |
+| `--markdown-output <PATH>` | —     | —                         | Output Markdown snippet file     |
+| `--badge-url <URL>`        | —     | local SVG path            | Public URL for the SVG           |
 
 ```bash
 sanctifier analyze . --format json > sanctifier-report.json
@@ -250,10 +268,10 @@ Generate a Graphviz DOT call graph of cross-contract calls
 sanctifier callgraph [OPTIONS] [PATH]
 ```
 
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `[PATH]` | — | `.` | Contract directory, workspace, or `.rs` file |
-| `--output <FILE>` | `-o` | `callgraph.dot` | Output DOT file |
+| Flag              | Short | Default         | Description                                  |
+| ----------------- | ----- | --------------- | -------------------------------------------- |
+| `[PATH]`          | —     | `.`             | Contract directory, workspace, or `.rs` file |
+| `--output <FILE>` | `-o`  | `callgraph.dot` | Output DOT file                              |
 
 ```bash
 sanctifier callgraph ./contracts/amm-pool -o amm-callgraph.dot
@@ -280,9 +298,9 @@ Generate a security report (writes to stdout or a file).
 sanctifier report [OPTIONS]
 ```
 
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--output <PATH>` | `-o` | stdout | Output file path |
+| Flag              | Short | Default | Description      |
+| ----------------- | ----- | ------- | ---------------- |
+| `--output <PATH>` | `-o`  | stdout  | Output file path |
 
 ---
 
@@ -298,36 +316,38 @@ sanctifier analyze ./contracts/vulnerable-contract --format json
     "version": "0.1.0",
     "timestamp": "2026-03-24T12:00:00Z",
     "project_path": "./contracts/vulnerable-contract",
-    "format": "sanctifier-ci-v1"
+    "format": "sanctifier-ci-v1",
   },
   "summary": {
     "critical": 0,
     "high": 0,
     "medium": 2,
     "low": 0,
-    "info": 0
+    "info": 0,
   },
   "findings": {
-    "auth_gaps": [
-      { "code": "S001", "function": "src/lib.rs:set_admin" }
-    ],
+    "auth_gaps": [{ "code": "S001", "function": "src/lib.rs:set_admin" }],
     "panics": [
-      { "code": "S002", "type": "expect", "location": "src/lib.rs:set_admin_secure" }
+      {
+        "code": "S002",
+        "type": "expect",
+        "location": "src/lib.rs:set_admin_secure",
+      },
     ],
     "arithmetic_issues": [],
     "storage_collisions": [
-      { "code": "S005", "value": "admin", "type": "storage::set (instance)" }
+      { "code": "S005", "value": "admin", "type": "storage::set (instance)" },
     ],
     "upgrade_admin_risks": [
-      { "code": "S010", "category": "Governance", "function": "set_admin" }
-    ]
+      { "code": "S010", "category": "Governance", "function": "set_admin" },
+    ],
   },
   "error_codes": [
     { "code": "S001", "category": "authentication", "description": "..." },
-    "..."
+    "...",
   ],
   "vuln_db_matches": [],
-  "schema_version": "1.0.0"
+  "schema_version": "1.0.0",
 }
 ```
 
@@ -473,30 +493,30 @@ Copy the snippet from `sanctifier-security.md`, or paste directly:
 
 ### What the badge reflects
 
-| Badge color | Status | Meaning |
-|-------------|--------|---------|
-| 🟢 Green | **Secure** | Zero findings |
-| 🟠 Orange | **Warning** | At least one finding (high severity or any finding) |
-| 🔴 Red | **Critical** | At least one critical-severity finding |
+| Badge color | Status       | Meaning                                             |
+| ----------- | ------------ | --------------------------------------------------- |
+| 🟢 Green    | **Secure**   | Zero findings                                       |
+| 🟠 Orange   | **Warning**  | At least one finding (high severity or any finding) |
+| 🔴 Red      | **Critical** | At least one critical-severity finding              |
 
 The badge is regenerated automatically whenever you re-run `sanctifier badge`
-with an updated report.  Add it to your CI pipeline so the badge always
+with an updated report. Add it to your CI pipeline so the badge always
 reflects the latest scan result.
 
 ---
 
 ## 📚 Documentation
 
-| Document | Description |
-|----------|-------------|
-| [Getting Started](docs/getting-started.md) | First-run walkthrough |
-| [Error Codes](docs/error-codes.md) | Full finding-code reference |
-| [Runtime Guards Integration](docs/runtime-guards-integration.md) | Adding runtime guards to your contract |
-| [CI/CD Setup](docs/ci-cd-setup.md) | GitHub Actions integration |
-| [Soroban Deployment](docs/soroban-deployment.md) | Deploy guard contracts to testnet |
-| [Contributing Analysis Rules](docs/Contributing-analysis-rules.MD) | Writing custom analysis rules |
-| [Case Studies](docs/case-studies/soroban-examples.md) | Benchmark against official Soroban examples |
-| [Architecture Decisions](docs/adr/) | ADRs for design choices |
+| Document                                                           | Description                                 |
+| ------------------------------------------------------------------ | ------------------------------------------- |
+| [Getting Started](docs/getting-started.md)                         | First-run walkthrough                       |
+| [Error Codes](docs/error-codes.md)                                 | Full finding-code reference                 |
+| [Runtime Guards Integration](docs/runtime-guards-integration.md)   | Adding runtime guards to your contract      |
+| [CI/CD Setup](docs/ci-cd-setup.md)                                 | GitHub Actions integration                  |
+| [Soroban Deployment](docs/soroban-deployment.md)                   | Deploy guard contracts to testnet           |
+| [Contributing Analysis Rules](docs/Contributing-analysis-rules.MD) | Writing custom analysis rules               |
+| [Case Studies](docs/case-studies/soroban-examples.md)              | Benchmark against official Soroban examples |
+| [Architecture Decisions](docs/adr/)                                | ADRs for design choices                     |
 
 ---
 
