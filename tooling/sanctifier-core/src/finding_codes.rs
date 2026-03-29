@@ -1,6 +1,6 @@
 //! Canonical finding codes emitted by Sanctifier analysis passes.
 //!
-//! Each constant (`S000` – `S013`) maps to a single diagnostic category.
+//! Each constant (`S000` – `S016`) maps to a single diagnostic category.
 //! Call `all_finding_codes()` to retrieve the full catalogue at runtime.
 
 use serde::{Deserialize, Serialize};
@@ -49,9 +49,11 @@ pub const SMT_INVARIANT_VIOLATION: &str = "S011";
 pub const SEP41_INTERFACE_DEVIATION: &str = "S012";
 /// Reentrancy vulnerability detected (state mutation before external call without guard).
 pub const REENTRANCY: &str = "S013";
-/// Hardcoded secret key detected in contract source.
+/// Potential administrative centralisation or insecure override.
+pub const ADMIN_TRUST_RISK: &str = "S014";
+/// Hardcoded secret key or sensitive mnemonic in contract source.
 pub const HARDCODED_SECRET_KEY: &str = "S015";
-/// Integer truncation (e.g. `as u32`) or unchecked slice/array indexing.
+/// Integer truncation (cast) or unchecked slice/array indexing.
 pub const TRUNCATION_BOUNDS: &str = "S016";
 
 /// A single finding-code entry with machine-readable code, category, and
@@ -141,9 +143,14 @@ pub fn all_finding_codes() -> Vec<FindingCode> {
             description: "State mutation before external call without a reentrancy guard",
         },
         FindingCode {
+            code: ADMIN_TRUST_RISK,
+            category: "centralization",
+            description: "Excessive administrative control or insecure credential management",
+        },
+        FindingCode {
             code: HARDCODED_SECRET_KEY,
             category: "secrets",
-            description: "Hardcoded secret key detected in contract source",
+            description: "Hardcoded secret key or sensitive mnemonic in contract source",
         },
         FindingCode {
             code: TRUNCATION_BOUNDS,

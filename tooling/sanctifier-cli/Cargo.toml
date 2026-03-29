@@ -11,7 +11,7 @@ keywords = ["stellar", "soroban", "security", "cli", "analysis"]
 categories = ["command-line-utilities", "development-tools"]
 
 [features]
-default = ["smt"]
+default = []
 smt = ["sanctifier-core/smt"]
 
 [dependencies]

@@ -10,7 +10,7 @@ keywords = ["stellar", "soroban", "security", "analysis"]
 categories = ["development-tools", "command-line-utilities"]
 
 [features]
-default = ["smt"]
+default = []
 ## Enables the Z3-backed formal-verification pass. Requires libz3 at compile
 ## time. Disable with default-features = false when targeting wasm32.
 smt = ["dep:z3"]
