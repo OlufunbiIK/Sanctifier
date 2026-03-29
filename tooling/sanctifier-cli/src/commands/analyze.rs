@@ -6,7 +6,7 @@ use clap::{Args, ValueEnum};
 use colored::*;
 use rayon::prelude::*;
 use sanctifier_core::finding_codes;
-use sanctifier_core::{Analyzer, SanctifyConfig, SizeWarningLevel};
+use sanctifier_core::{Analyzer, SanctifyConfig};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{
@@ -333,7 +333,7 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
             .unwrap_or(false);
 
     let timestamp = chrono_timestamp();
-    let duration_ms = start.elapsed().as_millis() as u64;
+    let _duration_ms = start.elapsed().as_millis() as u64;
 
     let webhook_payload = ScanWebhookPayload {
         event: "scan.completed",

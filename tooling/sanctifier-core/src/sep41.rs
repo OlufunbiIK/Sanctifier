@@ -459,6 +459,13 @@ fn expr_identifier(expr: &syn::Expr) -> Option<String> {
     }
 }
 
+impl Sep41Issue {
+    /// Returns the severity level of this SEP-41 interface deviation.
+    pub fn severity(&self) -> crate::finding_codes::FindingSeverity {
+        crate::finding_codes::FindingSeverity::Critical
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -609,12 +616,5 @@ mod tests {
         assert!(!report.candidate);
         assert!(!report.compliant);
         assert!(report.issues.is_empty());
-    }
-}
-
-impl Sep41Issue {
-    /// Returns the severity level of this SEP-41 interface deviation.
-    pub fn severity(&self) -> crate::finding_codes::FindingSeverity {
-        crate::finding_codes::FindingSeverity::Critical
     }
 }

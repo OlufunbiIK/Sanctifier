@@ -1,7 +1,8 @@
+#![allow(dead_code)]
 use anyhow::{bail, Context};
 use clap::Args;
 use colored::Colorize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use tracing::info;
 
@@ -79,7 +80,7 @@ pub fn exec(args: VerifyArgs) -> anyhow::Result<()> {
 }
 
 /// Build the contract in release mode and return the path to the produced WASM.
-fn build_local_wasm(contract_path: &PathBuf) -> anyhow::Result<PathBuf> {
+fn build_local_wasm(contract_path: &Path) -> anyhow::Result<PathBuf> {
     println!("  Building local WASM …");
     let status = Command::new("cargo")
         .args([

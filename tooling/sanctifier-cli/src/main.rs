@@ -146,8 +146,6 @@ fn run() -> anyhow::Result<()> {
         Commands::Reentrancy(args) => {
             commands::reentrancy::exec(args)?;
         }
-
-        }
     }
 
     Ok(())

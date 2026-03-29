@@ -101,7 +101,7 @@ impl BridgeContract {
     ) -> Bytes {
         let mut data = Bytes::new(env);
         data.append(&source_chain.to_xdr(env));
-        data.append(&source_txn.to_xdr(env));
+        data.append(&source_txn.clone().to_xdr(env));
         data.append(&target_addr.to_xdr(env));
         data.append(&amount.to_xdr(env));
         env.crypto().sha256(&data).into()

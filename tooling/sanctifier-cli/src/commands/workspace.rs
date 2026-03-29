@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::commands::analyze::{
     analyze_single_file, collect_rs_files, run_with_timeout,
 };
@@ -216,12 +217,9 @@ pub fn exec(args: WorkspaceArgs) -> anyhow::Result<()> {
                 let analyzer = Arc::clone(&analyzer);
                 let vuln_db = Arc::clone(&vuln_db);
                 let file_name_clone = file_name.clone();
-                match run_with_timeout(timeout_dur, move || {
+                run_with_timeout(timeout_dur, move || {
                     analyze_single_file(&analyzer, &vuln_db, &content, &file_name_clone)
-                }) {
-                    Some(r) => r,
-                    None => Default::default(),
-                }
+                }).unwrap_or_default()
             })
             .collect();
 
